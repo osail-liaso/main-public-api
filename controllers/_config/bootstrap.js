@@ -34,7 +34,7 @@ exports.createDefaultSettings = async function (req, res, next) {
     res.header("auth-token-decoded", JSON.stringify(newToken.tokenDecoded));
     res.status(201).send({
       message:
-        "Bootstrap initiated. Record this password, it is the last time it will be shown",
+        "Bootstrap initiated to create an admin account. Record this password, it is the last time it will be shown",
       payload: { username: username, password: plainPassword },
     });
   } catch (error) {
