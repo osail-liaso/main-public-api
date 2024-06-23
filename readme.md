@@ -15,22 +15,27 @@ TIMEOUT=30000 #query timeout for long open connections
 JWT_SECRET=#randomly generated hard to guess string for signing tokens
 
 ### Database Connection
-DATASTORE=SQLDB #or MONGODB if using MONGODB
-MONGODB= #Connection string to a MongoDB or an Atlas MongoDB
-SQL_SERVER= #your_server.database.windows.net #server URL
-SQL_DATABASE= #your_database_name #database name
-SQL_USER= #your_username 
-SQL_PASSWORD= #password
+- DATASTORE=SQLDB #or MONGODB if using MONGODB
+- MONGODB= #Connection string to a MongoDB or an Atlas MongoDB
+
+### Sequelize settings
+- USE_SEQUELIZE=true
+- SQL_SERVER= #your_server.database.windows.net #server URL
+- SQL_DATABASE= #your_database_name #database name
+- SQL_USER= #your_username 
+- SQL_PASSWORD= #password
+- SQL_ENCRYPT=true
+- SQL_TRUST_SERVER_CERTIFICATE=true
 
 ### API Keys
-OPENAI_API_KEY= #The provided Key from the service
-ANTHROPIC_API_KEY= #The provided Key from the service
-AZURE_OPENAI_KEY= #The provided Key from the service
-AZURE_OPENAI_ENDPOINT= #The provided Key from the service
-MISTRAL_API_KEY= #The provided Key from the service
+- OPENAI_API_KEY= #The provided Key from the service
+- ANTHROPIC_API_KEY= #The provided Key from the service
+- AZURE_OPENAI_KEY= #The provided Key from the service
+- AZURE_OPENAI_ENDPOINT= #The provided Key from the service
+- MISTRAL_API_KEY= #The provided Key from the service
 
 ### User Settings
-CHARACTERS_RESERVE_DEFAULT=1000000 #number of characters to grant to a user, if applicablke
+- CHARACTERS_RESERVE_DEFAULT=1000000 #number of characters to grant to a user, if applicablke
 
 # Application Server License
 The MIT License (MIT)
