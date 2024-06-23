@@ -1,0 +1,6 @@
+node_modules
+_creds
+assets
+.env
+combined.log
+requests.log
