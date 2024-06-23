@@ -1,6 +1,6 @@
 {
   "name": "main-public-api",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Open source platform for LLM API integrations",
   "main": "index.js",
   "scripts": {},

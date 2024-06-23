@@ -28,7 +28,6 @@ function buildPromptConfig(data, account) {
     systemPrompt: data.systemPrompt,
     userPrompt: data.userPrompt,
     messageHistory: data.messageHistory,
-    knowledgeSetUuids: data.knowledgeSetUuids,
   };
 }
 
