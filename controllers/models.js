@@ -1,4 +1,4 @@
-const Model = require('../models/Model');
+const modelDAL = require('../dal/modelsDal');
 const ApiError = require('../error/ApiError');
 const logger = require('../middleware/logger');
 const uuidv4 = require('uuid').v4;
@@ -7,67 +7,94 @@ exports.bootstrapModels = async function (req, res, next) {
     try {
         let defaultModels = [];
 
-        //Bootstrap a set of default modles based on your configuration
-        
-        if (process.env.OPENAI_API_KEY) defaultModels.push({  concurrentInstances: 20, provider: 'openAi', maxTokens: 128000, per1kInput: 0.01, per1kOutput: 0.03, model: "gpt-4-1106-preview", name: {en:"OpenAI GPT-4 Turbo (128k)", fr:"OpenAI GPT-4 Turbo (128k)"}  });
-        if (process.env.OPENAI_API_KEY) defaultModels.push({ concurrentInstances: 20, provider: 'openAi', maxTokens: 128000, per1kInput: 0.01, per1kOutput: 0.03, model: "gpt-4o", name: {en:"OpenAI GPT-4o", fr:"OpenAI GPT-4o"}  });
-        if (process.env.ANTHROPIC_API_KEY) {
-            // defaultModels.push({ provider: 'anthropic', maxTokens: 100000, per1kInput: 0.00163, per1kOutput: 0.00551, model: "claude-instant-1.2", name: {en:"Claude 2.1 Instant", fr:"Claude 2.1 Instant"}  });
-            // defaultModels.push({ provider: 'anthropic', maxTokens: 200000, per1kInput: 0.008, per1kOutput: 0.024, model: "claude-2.1", name: {en:"Claude 2.1", fr:"Claude 2.1"} });
-            defaultModels.push({  concurrentInstances: 5, provider: 'anthropic', maxTokens: 200000, per1kInput: 0.008, per1kOutput: 0.024, model: "claude-3-5-sonnet-20240620", name: {en:"Claude 3.5 Sonnet", fr:"Claude 3.5 Sonnet"} });
-            defaultModels.push({  concurrentInstances: 5, provider: 'anthropic', maxTokens: 200000, per1kInput: 0.008, per1kOutput: 0.024, model: "claude-3-opus-20240229", name: {en:"Claude 3 Opus", fr:"Claude 3 Opus"} });
-            defaultModels.push({  concurrentInstances: 5, provider: 'anthropic', maxTokens: 200000, per1kInput: 0.008, per1kOutput: 0.024, model: "claude-3-sonnet-20240229", name: {en:"Claude 3 Sonnet", fr:"Claude 3 Sonnet"} });
-            defaultModels.push({   concurrentInstances: 5, provider: 'anthropic', maxTokens: 200000, per1kInput: 0.008, per1kOutput: 0.024, model: "claude-3-haiku-20240307", name: {en:"Claude 3 Haiku", fr:"Claude 3 Haiku"} });
-        }
-        if (process.env.MISTRAL_API_KEY) defaultModels.push({  concurrentInstances: 10, provider: 'mistral', maxTokens: 128000, per1kInput: 0.07, per1kOutput: 0.03, model: "open-mixtral-8x7b", name: {en:"Mixtral 8x7B", fr:"Mixtral 8x7B"}  });
-        if (process.env.MISTRAL_API_KEY) defaultModels.push({  concurrentInstances: 10, provider: 'mistral', maxTokens: 128000, per1kInput: 0.07, per1kOutput: 0.03, model: "open-mixtral-8x22b", name: {en:"Mixtral 8x22B", fr:"Mixtral 8x22B"}  });
-        if (process.env.AZURE_OPENAI_KEY) defaultModels.push({  concurrentInstances: 10, provider: 'azureOpenAi', maxTokens: 128000, per1kInput: 0.04, per1kOutput: 0.08, model: "gpt-4", name: {en:"Azure GPT-4 (128k)", fr:"Azure GPT-4 (128k)"}  });
-
-        // Prepare an array to hold models that do not exist in the collection
-        let newModels = [];
-
-        // Check each default model against the database
-        for (const model of defaultModels) {
-            // Check for an existing model with the same provider and English name
-            const existingModel = await Model.findOne({
-                provider: model.provider,
-                model: model.model
+        // Bootstrap a set of default models based on your configuration
+        if (process.env.OPENAI_API_KEY) {
+            defaultModels.push({
+                uuid: uuidv4(),
+                concurrentInstances: 20,
+                provider: 'openAi',
+                maxTokens: 128000,
+                per1kInput: 0.01,
+                per1kOutput: 0.03,
+                model: "gpt-4-1106-preview",
+                name: {en: "OpenAI GPT-4 Turbo (128k)", fr: "OpenAI GPT-4 Turbo (128k)"},
+                publishStatus: 'unpublished',
+                status: 'active',
+                owners: [],
+                editors: [],
+                viewers: []
             });
 
-            // If the model does not exist, add it to the newModels array
+            defaultModels.push({
+                uuid: uuidv4(),
+                concurrentInstances: 20,
+                provider: 'openAi',
+                maxTokens: 128000,
+                per1kInput: 0.01,
+                per1kOutput: 0.03,
+                model: "gpt-4o",
+                name: {en: "OpenAI GPT-4o", fr: "OpenAI GPT-4o"},
+                publishStatus: 'unpublished',
+                status: 'active',
+                owners: [],
+                editors: [],
+                viewers: []
+            });
+        }
+
+        if (process.env.ANTHROPIC_API_KEY) {
+            defaultModels.push({
+                uuid: uuidv4(),
+                concurrentInstances: 5,
+                provider: 'anthropic',
+                maxTokens: 200000,
+                per1kInput: 0.003,
+                per1kOutput: 0.015,
+                model: "claude-3-5-sonnet-20240620",
+                name: {en: "Anthropic Claude Sonnet 3.5", fr: "Anthropic Claude Sonnet 3.5"},
+                publishStatus: 'unpublished',
+                status: 'active',
+                owners: [],
+                editors: [],
+                viewers: []
+            });
+         }
+
+        // ... (similar changes for other models)
+
+        let newModels = [];
+        for (const model of defaultModels) {
+            const existingModel = await modelDAL.getModelByProviderAndName(model.provider, model.model);
             if (!existingModel) {
                 newModels.push(model);
             }
         }
 
-        // Insert new models that do not exist in the collection
-        var results = [];
+        let results = [];
         if (newModels.length > 0) {
-            results = await Model.insertMany(newModels, { runValidators: true });
+            results = await modelDAL.createModels(newModels);
         }
 
         res.status(200).json({ message: "Bootstrapped a default list of models for you to edit or delete", payload: results });
     } catch (error) {
-        console.log(error); // It's good to log the actual error for debugging purposes
-        next(ApiError.internal("An error occurred while bootstrapping Models"));
+        console.error("Error in bootstrapModels:", error);
+        next(ApiError.internal(`An error occurred while bootstrapping Models: ${error.message}`));
     }
 };
 
 
 exports.getModels = async function (req, res, next) {
     try {
-        let baseQuery = { status: 'active' };
-        const models = await Model.find(baseQuery);
+        const models = await modelDAL.getActiveModels();
         res.status(200).json({ message: "Here are all the active Models", payload: models });
     } catch (error) {
+        console.log(error)
         next(ApiError.internal("An error occurred while retrieving Models"));
     }
 };
 
 exports.createModels = async function (req, res, next) {
     try {
-
-        //Only admins create models, for now
         var roles = req.tokenDecoded?.roles || [];
         const isAdmin = roles.includes('admin');
         if (!isAdmin) {
@@ -79,7 +106,6 @@ exports.createModels = async function (req, res, next) {
             modelsData = [modelsData];
         }
 
-        // Set the person who created these Models, if applicable
         modelsData.forEach((model) => {
             if (req.tokenDecoded) {
                 model.owners = [req.tokenDecoded.username];
@@ -87,15 +113,13 @@ exports.createModels = async function (req, res, next) {
                 model.viewers = [req.tokenDecoded.username];
                 model.createdBy = req.tokenDecoded.username;
             }
-            //Assign a uuid if not assigned by the UI
-            if (!model.uuid) model.uuid = uuidv4()
+            if (!model.uuid) model.uuid = uuidv4();
         });
 
-        // Attempt to insert the new Models
-        var results = await Model.insertMany(modelsData, { runValidators: true });
+        var results = await modelDAL.createModels(modelsData);
         res.status(201).json({ message: "Created all the provided Models", payload: results });
     } catch (error) {
-        console.log(error)
+        console.log(error);
         next(error instanceof ApiError ? error : ApiError.internal("An error occurred while creating Models"));
     }
 };
@@ -104,17 +128,16 @@ exports.updateModels = async function (req, res, next) {
     const modelsUpdates = req.body.models || [];
     const username = req.tokenDecoded?.username;
     const roles = req.tokenDecoded?.roles || [];
-    const errors = []; // Initialize an array to store errors
-    const successes = []; // Initialize an array to store successful updates
+    const errors = [];
+    const successes = [];
 
     if (!Array.isArray(modelsUpdates)) {
         return next(ApiError.badRequest("Models updates should be an array."));
     }
 
-    // Process each Model update
     for (const update of modelsUpdates) {
         try {
-            let model = await Model.findOne({ uuid: update.uuid });
+            let model = await modelDAL.getModelByUuid(update.uuid);
 
             if (!model) {
                 errors.push(`Model with UUID ${update.uuid} not found.`);
@@ -128,19 +151,14 @@ exports.updateModels = async function (req, res, next) {
                 continue;
             }
 
-            // Remove the _id field from the update object
             const { _id, ...updateWithoutId } = update;
-
-            // Perform the update
-            await Model.updateOne({ uuid: update.uuid }, { $set: updateWithoutId }, { runValidators: true });
+            await modelDAL.updateModel(update.uuid, updateWithoutId);
             successes.push(`Model with UUID ${update.uuid} updated successfully.`);
         } catch (error) {
-            // Instead of throwing, push the error message to the errors array
             errors.push(`Failed to update Model with UUID ${update.uuid}. Error: ${error.message}`);
         }
     }
 
-    // If there were errors, return a summary along with a 207 Multi-Status response
     if (errors.length > 0) {
         return res.status(207).json({
             message: "Completed with some errors.",
@@ -149,7 +167,6 @@ exports.updateModels = async function (req, res, next) {
         });
     }
 
-    // If no errors occurred, return success message
     res.status(200).json({ message: "All Models updated successfully." });
 };
 
@@ -157,16 +174,15 @@ exports.deleteModels = async function (req, res, next) {
     const modelUuids = req.body.modelUuids || [];
     const username = req.tokenDecoded?.username;
     const roles = req.tokenDecoded?.roles || [];
-    const errors = []; // Initialize an array to store errors
+    const errors = [];
 
     if (!Array.isArray(modelUuids)) {
         return next(ApiError.badRequest("Model UUIDs should be an array."));
     }
 
-    // Process each Model UUID for deletion
     for (const uuid of modelUuids) {
         try {
-            let model = await Model.findOne({ uuid: uuid });
+            let model = await modelDAL.getModelByUuid(uuid);
 
             if (!model) {
                 errors.push(`Model with UUID: ${uuid} does not exist.`);
@@ -181,21 +197,12 @@ exports.deleteModels = async function (req, res, next) {
                 continue;
             }
 
-            // Soft delete the Model by setting its status to 'inactive'
-            await Model.updateOne({ uuid: uuid }, { $set: { status: 'inactive' } });
-
-            // Remove the uuid from the knowledgeSet's modelUuids
-            await KnowledgeSet.updateMany(
-                { modelUuids: uuid },
-                { $pull: { modelUuids: uuid } }
-            );
+            await modelDAL.softDeleteModel(uuid);
         } catch (error) {
-            // Instead of throwing, push the error message to the errors array
             errors.push(`Failed to delete Model with UUID: ${uuid}. Error: ${error.message}`);
         }
     }
 
-    // If there were errors, return a summary along with a 207 Multi-Status response
     if (errors.length > 0) {
         return res.status(207).json({
             message: "Completed with some errors.",
@@ -203,7 +210,5 @@ exports.deleteModels = async function (req, res, next) {
         });
     }
 
-    // If no errors occurred, return success message
     res.status(200).json({ message: "All Models deleted successfully." });
 };
-

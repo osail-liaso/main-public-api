@@ -17,7 +17,7 @@ const {
   updateAccount,
   deleteAccount,
   getAllAccounts,
-} = require('../dal/accounts');
+} = require('../dal/accountsDal');
 
 
 exports.createNewAccount = async function (req, res, next) {
@@ -102,7 +102,20 @@ exports.login = async function (req, res, next) {
   } catch (error) {
     next(error);
   }
+
 };
+
+
+exports.getAccounts = async function (req, res, next) {
+  try {
+    const accountInfo = await getAllAccounts();
+    
+      res.status(200).json({ message: "Here is the account info", payload: accountInfo });
+   } catch (error) {
+    next(error);
+  }
+};
+
 
 exports.accountOwn = async function (req, res, next) {
   try {

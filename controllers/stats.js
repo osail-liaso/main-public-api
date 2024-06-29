@@ -1,7 +1,4 @@
 //Inherits KnowledgeSet permission and requires a knowledgeSetUuid for each transaction
-
-const Account = require('../models/account.js');
-const Persona = require('../models/Persona.js');
 const ApiError = require('../error/ApiError');
 
 const logger = require('../middleware/logger');
@@ -15,12 +12,12 @@ exports.getStats = async function (req, res, next) {
 
         // Send the counts as JSON response
         res.status(200).json({
-            message: "Here are the counts of active documents",
+            message: "Here are relevants stats",
             payload: {
                 version: version // Include the version in the response
             }
         });
     } catch (error) {
-        next(ApiError.internal("An error occurred while retrieving document counts"));
+        next(ApiError.internal("An error occurred while retrieving stats"));
     }
 };

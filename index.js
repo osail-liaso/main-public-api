@@ -10,53 +10,18 @@ const apiErrorHandler = require('./error/apiErrorHandler');
 //Static Content
 app.get('/favicon.ico', (req, res) => res.status(204));
 app.use('/', express.static(path.join(__dirname, '/public')))
+ 
+//Core Services
+app.use('/healthcheck', require('./routes/healthcheck')); //Perform a basic healthcheck
+app.use('/stats', require('./routes/stats')); // Load the stats from the server side
+app.use('/bootstrap', require('./routes/bootstrap')); // Create the admin acccount to begin onboarding other accounts
 
-// //Register the routes
-// //User management
-// app.use('/accounts', require('./routes/accounts'));
-
-// //Facts
-// app.use('/facts', require('./routes/facts'));
-
-// //Upload files
-// app.use('/files', require('./routes/files'));
-
-// //Misc services
-app.use('/healthcheck', require('./routes/healthcheck'));
-app.use('/bootstrap', require('./routes/bootstrap'));
-
-// //Knowledge Profiles
-// app.use('/knowledgeProfiles', require('./routes/knowledgeProfiles'));
-
-// //Lexicon
+//Use Models
+app.use('/accounts', require('./routes/accounts'));
+app.use('/models', require('./routes/models'));
 // app.use('/lexicon', require('./routes/lexicon'));
-
 // app.use('/personas', require('./routes/personas'));
-
-// //Rosters
-// app.use('/rosters', require('./routes/rosters'));
-
-// //Work Streams
-// app.use('/workStreams', require('./routes/workStreams'));
-
-// //New Knowledge Mapping features
-// app.use('/assignments', require('./routes/assignments.js'));
-// app.use('/knowledgeSets', require('./routes/knowledgeMapping/knowledgeSets.js'));
-// app.use('/categories', require('./routes/knowledgeMapping/categories.js'));
-// app.use('/tags', require('./routes/knowledgeMapping/tags.js'));
-// app.use('/documents', require('./routes/knowledgeMapping/documents.js'));
-// app.use('/segments', require('./routes/knowledgeMapping/segments.js'));
-// app.use('/artifacts', require('./routes/knowledgeMapping/artifacts.js'));
-
-// //Server side managed models
-// app.use('/models', require('./routes/models.js'));
-// app.use('/stats', require('./routes/stats.js'));
-
-// //Administrative cleanup based on email or username matching
-// app.use('/clean', require('./routes/clean.js'));
-
-// //Added the version increment to the git hook
-
+  
 //Establish a 404 Not Found Custom Response
 app.use((req, res, next) => {
     const error = new Error('This site was not found. Perhaps you want to call login?');

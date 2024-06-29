@@ -27,13 +27,8 @@ ADD CONSTRAINT CHK_Accounts_RequiredFields CHECK (
     AND JSON_VALUE(data, '$.password') IS NOT NULL
     AND JSON_VALUE(data, '$.salt') IS NOT NULL
     AND JSON_QUERY(data, '$.roles') IS NOT NULL
-);
-
--- Add check constraint for valid roles
-ALTER TABLE dbo.Accounts
-ADD CONSTRAINT CHK_Accounts_RolesNotEmpty CHECK (
-    JSON_ARRAY_LENGTH(JSON_QUERY(data, '$.roles')) > 0
-);
+    AND JSON_QUERY(data, '$.roles') <> '[]'
+    );
 
 -- Add check constraint for valid subscription status
 ALTER TABLE dbo.Accounts
@@ -66,98 +61,51 @@ Account.init({
     type: DataTypes.JSON,
     allowNull: false,
     validate: {
-      isValidAccountData(value) {
+      isValidData(value) {
 
-
-        // //Administrative fields
-        // Object.entries(administrativeFields).forEach(([field, config]) => {
-        //   if (config.validate) {
-        //     Object.entries(config.validate).forEach(([validatorName, validatorFunction]) => {
-        //       if (typeof validatorFunction === 'function') {
-        //         validatorFunction(value[field]);
-        //       }
-        //     });
-        //   }
-        // });
-
+        console.log("isValidData(value)", value)
+ 
 
         // User information
         if (!value.uuid || !value.username || !value.password || !value.salt) {
           throw new Error('uuid, username, password, and salt are required');
         }
-        if (!value.roles || !Array.isArray(value.roles) || value.roles.length === 0) {
-          throw new Error('roles must be a non-empty array');
-        }
-        if (!['user', 'contributor', 'owner', 'admin'].some(role => value.roles.includes(role))) {
-          throw new Error('Invalid role');
-        }
 
-        // Validate email uniqueness (this would require a custom validator)
+        // if (!value.roles || !Array.isArray(value.roles) || value.roles.length === 0) {
+        //   throw new Error('roles must be a non-empty array');
+        // }
+        // if (!['user', 'contributor', 'owner', 'admin'].some(role => value.roles.includes(role))) {
+        //   throw new Error('Invalid role');
+        // }
+
+        // // Validate email uniqueness (this would require a custom validator)
         
-        // Subscription status
-        if (value.subscriptionStatus && !['active', 'inactive'].includes(value.subscriptionStatus)) {
-          throw new Error('Invalid subscription status');
-        }
+        // // Subscription status
+        // if (value.subscriptionStatus && !['active', 'inactive'].includes(value.subscriptionStatus)) {
+        //   throw new Error('Invalid subscription status');
+        // }
 
-        // Status
-        if (value.status && !['active', 'inactive', 'deleted'].includes(value.status)) {
-          throw new Error('Invalid status');
-        }
+        // // Status
+        // if (value.status && !['active', 'inactive', 'deleted'].includes(value.status)) {
+        //   throw new Error('Invalid status');
+        // }
 
         // Add more validations as needed
       }
     },
     get() {
       const rawValue = this.getDataValue('data');
-      return {
 
-        // // Administrative fields
-        // ...Object.fromEntries(
-        //   Object.entries(administrativeFields).map(([field, config]) => [field, rawValue[field] ?? config.defaultValue])
-        // ),
+      if (typeof rawValue === 'string') {
+        try {
+          return JSON.parse(rawValue);
+        } catch (error) {
+          console.error('Error parsing JSON:', error);
+          return rawValue;
+        }
+      }
 
-        // User information
-        uuid: rawValue.uuid,
-        username: rawValue.username,
-        password: rawValue.password,
-        salt: rawValue.salt,
-        email: rawValue.email,
-        useCase: rawValue.useCase,
-        notes: rawValue.notes,
-        preferredLng: rawValue.preferredLng,
-        roles: rawValue.roles,
-
-        // Free characters
-        characterReserve: rawValue.characterReserve || process.env.CHARACTERS_RESERVE_DEFAULT,
-        charactersUsed: rawValue.charactersUsed || 0,
-        ownCharactersUsed: rawValue.ownCharactersUsed || 0,
-
-        // BYOK
-        openAiApiKey: rawValue.openAiApiKey,
-        anthropicApiKey: rawValue.anthropicApiKey,
-        azureOpenAiApiKey: rawValue.azureOpenAiApiKey,
-        azureOpenAiApiEndpoint: rawValue.azureOpenAiApiEndpoint,
-        mistralApiKey: rawValue.mistralApiKey,
-
-        // Subscription
-        subscriptionType: rawValue.subscriptionType || 'free',
-        subscriptionDate: rawValue.subscriptionDate,
-        subscriptionStatus: rawValue.subscriptionStatus || 'inactive',
-        subscriptionHistory: rawValue.subscriptionHistory || [],
-
-        status: rawValue.status || 'active',
-
-        // Account settings info
-        momentFirstLogin: rawValue.momentFirstLogin,
-        momentLastLogin: rawValue.momentLastLogin,
-
-        // Password Resets
-        passwordResetRequired: rawValue.passwordResetRequired,
-        passwordResetRequested: rawValue.passwordResetRequested,
-        passwordResetToken: rawValue.passwordResetToken,
-        momentPasswordResetTokenExpires: rawValue.momentPasswordResetTokenExpires,
-
-      };
+      return  rawValue;
     },
     set(value) {
       this.setDataValue('data', value);

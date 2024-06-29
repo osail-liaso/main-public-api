@@ -1,152 +1,117 @@
 /*
-// Table Definition
-CREATE TABLE Personas (
+//Table Definitions
+
+-- Create the Personas table
+CREATE TABLE dbo.Personas (
     id INT IDENTITY(1,1) PRIMARY KEY,
+    uuid AS CAST(JSON_VALUE(data, '$.uuid') AS NVARCHAR(36)) PERSISTED NOT NULL,
+    
     data NVARCHAR(MAX) CHECK (ISJSON(data) = 1),
     momentCreated DATETIME2 DEFAULT GETDATE(),
     momentUpdated DATETIME2 DEFAULT GETDATE()
-)
+);
+
+-- Create unique indexes on computed columns
+CREATE UNIQUE NONCLUSTERED INDEX IX_Personas_UUID
+ON dbo.Personas (uuid);
+
+-- Add check constraints to ensure required fields are present in JSON
+ALTER TABLE dbo.Personas
+ADD CONSTRAINT CHK_Personas_RequiredFields CHECK (
+  JSON_VALUE(data, '$.uuid') IS NOT NULL
+  AND JSON_QUERY(data, '$.name') IS NOT NULL
+  AND JSON_QUERY(data, '$.description') IS NOT NULL
+  AND JSON_VALUE(data, '$.status') IS NOT NULL
+);
+
+-- Add check constraint for valid Persona status
+ALTER TABLE dbo.Personas
+ADD CONSTRAINT CHK_Personas_ValidStatus CHECK (
+    JSON_VALUE(data, '$.status') IN ('active', 'inactive', 'deleted', NULL)
+);
+
+
 */
 
-const { DataTypes, Model } = require('sequelize');
-const { sequelize } = require('../../config/sql');
-const localizedField = require('./localizedField');
-const localizedArrayField = require('./localizedArrayField');
-const administrativeFields = require('./administrativeFields');
+const { DataTypes, Model } = require("sequelize");
+const { sequelize } = require("../../config/sql");
 
 class Persona extends Model {}
 
-Persona.init({
-  id: {
-    type: DataTypes.INTEGER,
-    autoIncrement: true,
-    primaryKey: true
-  },
-  data: {
-    type: DataTypes.JSON,
-    allowNull: false,
-    validate: {
-      isValidPersonaData(value) {
-        // Validate administrative fields
-        Object.entries(administrativeFields).forEach(([field, config]) => {
-          if (config.validate) {
-            Object.entries(config.validate).forEach(([validatorName, validatorFunction]) => {
-              if (typeof validatorFunction === 'function') {
-                validatorFunction(value[field]);
-              }
-            });
-          }
-        });
-
-        // Validate required fields
-        const requiredFields = ['name', 'description', 'avatarUrl'];
-        requiredFields.forEach(field => {
-          if (!value[field]) {
-            throw new Error(`${field} is required`);
-          }
-        });
-
-        // Validate localized fields
-        const localizedFields = ['name', 'description', 'purpose', 'backstory'];
-        localizedFields.forEach(field => {
-          if (value[field]) {
-            localizedField(field).validate.isValidLocalizedField.call(this, value[field]);
-          }
-        });
-
-        // Validate localized array fields
-        const localizedArrayFields = ['traits', 'interests'];
-        localizedArrayFields.forEach(field => {
-          if (value[field]) {
-            localizedArrayField(field).validate.isValidLocalizedArrayField.call(this, value[field]);
-          }
-        });
-
-        // Validate avatarUrl
-        if (value.avatarUrl && typeof value.avatarUrl !== 'string') {
-          throw new Error('avatarUrl must be a string');
-        }
-
-        // Validate age
-        if (value.age && !Number.isInteger(value.age)) {
-          throw new Error('age must be an integer');
-        }
-
-        // Validate other fields as needed
-      }
+Persona.init(
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
     },
-    get() {
-      const rawValue = this.getDataValue('data');
-      return {
-        // Administrative fields
-        ...Object.fromEntries(
-          Object.entries(administrativeFields).map(([field, config]) => [field, rawValue[field] ?? config.defaultValue])
-        ),
-        // Localized fields
-        name: localizedField('name').get.call({ getDataValue: () => rawValue.name }),
-        description: localizedField('description').get.call({ getDataValue: () => rawValue.description }),
-        purpose: localizedField('purpose').get.call({ getDataValue: () => rawValue.purpose }),
-        backstory: localizedField('backstory').get.call({ getDataValue: () => rawValue.backstory }),
-        // Localized array fields
-        traits: localizedArrayField('traits').get.call({ getDataValue: () => rawValue.traits }),
-        interests: localizedArrayField('interests').get.call({ getDataValue: () => rawValue.interests }),
-        // Other fields
-        avatarUrl: rawValue.avatarUrl,
-        age: rawValue.age,
-        // Add any other fields specific to Persona
-        momentDeleted: rawValue.momentDeleted
-      };
+    data: {
+      type: DataTypes.JSON,
+      allowNull: false,
+      validate: {
+        isValidData(value) {
+
+        // User information
+        if (!value.uuid || !value.name || !value.description || !value.status  ) {
+          throw new Error('uuid, name, description, and status are required');
+        }
+
+        // Status
+        if (value.status && !['active', 'inactive', 'deleted'].includes(value.status)) {
+          throw new Error('Invalid status');
+        }
+
+          // Add more validations as needed
+        },
+      },
+      get() {
+        const rawValue = this.getDataValue("data");
+
+        if (typeof rawValue === "string") {
+          try {
+            return JSON.parse(rawValue);
+          } catch (error) {
+            console.error("Error parsing JSON:", error);
+            return rawValue;
+          }
+        }
+
+        return rawValue;
+      },
+      set(value) {
+        this.setDataValue("data", value);
+      },
     },
-    set(value) {
-      // Set administrative fields
-      Object.keys(administrativeFields).forEach(field => {
-        if (value[field] === undefined && administrativeFields[field].defaultValue !== undefined) {
-          value[field] = typeof administrativeFields[field].defaultValue === 'function' 
-            ? administrativeFields[field].defaultValue()
-            : administrativeFields[field].defaultValue;
-        }
-      });
 
-      // Set localized fields
-      ['name', 'description', 'purpose', 'backstory'].forEach(field => {
-        if (value[field]) {
-          value[field] = localizedField(field).set.call({ setDataValue: (_, v) => v }, value[field]);
-        }
-      });
-
-      // Set localized array fields
-      ['traits', 'interests'].forEach(field => {
-        if (value[field]) {
-          value[field] = localizedArrayField(field).set.call({ setDataValue: (_, v) => v }, value[field]);
-        }
-      });
-
-      // Set other fields
-      this.setDataValue('data', value);
-    }
+    momentCreated: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
+    },
+    momentUpdated: {
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
+    },
   },
-  momentCreated: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW
-  },
-  momentUpdated: {
-    type: DataTypes.DATE,
-    defaultValue: DataTypes.NOW
+  {
+    sequelize,
+    modelName: "Persona",
+    tableName: "Personas",
+    timestamps: true,
+    createdAt: "momentCreated",
+    updatedAt: "momentUpdated",
   }
-}, {
-  sequelize,
-  modelName: 'Persona',
-  tableName: 'Personas',
-  timestamps: false,
-  hooks: {
-    beforeCreate: (persona) => {
-      persona.momentCreated = new Date();
-      persona.momentUpdated = new Date();
-    },
-    beforeUpdate: (persona) => {
-      persona.momentUpdated = new Date();
-    }
-  }
+);
+
+// Hook to update the momentUpdated field
+Persona.beforeUpdate((Persona, options) => {
+  Persona.momentUpdated = new Date();
+});
+
+// Hook to set momentCreated when a new Persona is created
+Persona.beforeCreate((Persona, options) => {
+  const now = new Date();
+  Persona.momentCreated = now;
+  Persona.momentUpdated = now;
 });
 
 module.exports = Persona;

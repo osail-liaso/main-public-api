@@ -2,8 +2,8 @@
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
 
-const administrativeFields = require('./common/administrativeFields');
-const localizedField = require('./common/localizedField');
+const administrativeFields = require('../common/administrativeFields');
+const localizedField = require('../common/localizedField');
 
 const ModelSchema = new Schema({
     organizationUuid: {type:String}, //if applicable
