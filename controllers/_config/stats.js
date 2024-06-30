@@ -1,9 +1,9 @@
 //Inherits KnowledgeSet permission and requires a knowledgeSetUuid for each transaction
-const ApiError = require('../error/ApiError');
+const ApiError = require('../../error/ApiError');
 
-const logger = require('../middleware/logger');
+const logger = require('../../middleware/logger');
 const uuidv4 = require('uuid').v4;
-const packageInfo = require('../package.json');
+const packageInfo = require('../../package.json');
 
 exports.getStats = async function (req, res, next) {
     try {

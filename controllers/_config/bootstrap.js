@@ -49,7 +49,7 @@ exports.createAdminAccount = async function (req, res, next) {
 // Accepts a new account and saves it to the database
 exports.createDefaultPersonas = async function (req, res, next) {
   try {
-    const defaultPersona = {
+    const defaultPersonas = [{
       uuid: uuidv4(),
       name: { en: "Default Persona", fr: "" },
       description: {
@@ -59,9 +59,10 @@ exports.createDefaultPersonas = async function (req, res, next) {
       systemPrompts: ["you are a duck"],
       userPrompts: ["make a sound"],
       status: "active",
-    };
+      publishStatus: "unpublished",
+    }];
 
-    const createdPersonas = await createPersonas(defaultPersona);
+    const createdPersonas = await createPersonas(defaultPersonas, 'osailAdmin');
 
     res.status(201).send({
       message:

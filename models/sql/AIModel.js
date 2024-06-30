@@ -4,6 +4,7 @@ CREATE TABLE dbo.Models (
     id INT IDENTITY(1,1) PRIMARY KEY,
      uuid AS CAST(JSON_VALUE(data, '$.uuid') AS NVARCHAR(36)) PERSISTED NOT NULL,
      model AS CAST(JSON_VALUE(data, '$.model') AS NVARCHAR(255)) PERSISTED NOT NULL,
+     status AS CAST(JSON_VALUE(data, '$.status') AS NVARCHAR(255)) PERSISTED NOT NULL,
     data NVARCHAR(MAX) CHECK (ISJSON(data) = 1),
     momentCreated DATETIME2 DEFAULT GETDATE(),
     momentUpdated DATETIME2 DEFAULT GETDATE()

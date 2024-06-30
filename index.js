@@ -19,8 +19,8 @@ app.use('/bootstrap', require('./routes/bootstrap')); // Create the admin acccou
 //Use Models
 app.use('/accounts', require('./routes/accounts'));
 app.use('/models', require('./routes/models'));
-// app.use('/lexicon', require('./routes/lexicon'));
-// app.use('/personas', require('./routes/personas'));
+app.use('/lexicon', require('./routes/lexicon'));
+app.use('/personas', require('./routes/personas'));
   
 //Establish a 404 Not Found Custom Response
 app.use((req, res, next) => {

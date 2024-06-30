@@ -5,7 +5,7 @@
 CREATE TABLE dbo.Personas (
     id INT IDENTITY(1,1) PRIMARY KEY,
     uuid AS CAST(JSON_VALUE(data, '$.uuid') AS NVARCHAR(36)) PERSISTED NOT NULL,
-    
+    status AS CAST(JSON_VALUE(data, '$.status') AS NVARCHAR(36)) PERSISTED NOT NULL,
     data NVARCHAR(MAX) CHECK (ISJSON(data) = 1),
     momentCreated DATETIME2 DEFAULT GETDATE(),
     momentUpdated DATETIME2 DEFAULT GETDATE()
@@ -22,12 +22,20 @@ ADD CONSTRAINT CHK_Personas_RequiredFields CHECK (
   AND JSON_QUERY(data, '$.name') IS NOT NULL
   AND JSON_QUERY(data, '$.description') IS NOT NULL
   AND JSON_VALUE(data, '$.status') IS NOT NULL
+  AND JSON_VALUE(data, '$.publishStatus') IS NOT NULL
+);
+
+
+-- Add check constraint for valid subscription status
+ALTER TABLE dbo.Personas
+ADD CONSTRAINT CHK_Personas_ValidPublishStatus CHECK (
+    JSON_VALUE(data, '$.publishStatus') IN ('published', 'unpublished')
 );
 
 -- Add check constraint for valid Persona status
 ALTER TABLE dbo.Personas
 ADD CONSTRAINT CHK_Personas_ValidStatus CHECK (
-    JSON_VALUE(data, '$.status') IN ('active', 'inactive', 'deleted', NULL)
+    JSON_VALUE(data, '$.status') IN ('active', 'inactive', 'deleted')
 );
 
 

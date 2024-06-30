@@ -55,7 +55,7 @@ exports.createNewAccount = async function (req, res, next) {
 
   try {
     const createdAccount = await createAccount(newAccount);
-    const newToken = createJWT(createdAccount, req.fullUrl);
+    const newToken = createJWT({uuid:newAccount.uuid, username:newAccount.username, roles:newAccount.roles, status:newAccount.status}, req.fullUrl);
     res.header("auth-token", newToken.token);
     res.header("auth-token-decoded", JSON.stringify(newToken.tokenDecoded));
     res.status(200).json({
@@ -94,7 +94,7 @@ exports.login = async function (req, res, next) {
       momentFirstLogin: account.momentFirstLogin || new Date(),
     });
 
-    const tokenInfo = { username: updatedAccount.username, roles: updatedAccount.roles };
+    const tokenInfo = { uuid: updatedAccount.uuid, username: updatedAccount.username, roles: updatedAccount.roles, status: updatedAccount.status };
     const newToken = createJWT(tokenInfo, "login");
     res.header("auth-token", newToken.token);
     res.header("auth-token-decoded", JSON.stringify(newToken.tokenDecoded));

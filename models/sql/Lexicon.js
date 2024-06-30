@@ -2,44 +2,31 @@
 /*
 //Table Definitions
 
--- Create the Accounts table
-CREATE TABLE dbo.Accounts (
+-- Create the Lexicons table
+CREATE TABLE dbo.Lexicon (
     id INT IDENTITY(1,1) PRIMARY KEY,
     uuid AS CAST(JSON_VALUE(data, '$.uuid') AS NVARCHAR(36)) PERSISTED NOT NULL,
-    username AS CAST(JSON_VALUE(data, '$.username') AS NVARCHAR(255)) PERSISTED NOT NULL,
+    code AS CAST(JSON_VALUE(data, '$.code') AS NVARCHAR(255)) PERSISTED NOT NULL,
     status AS CAST(JSON_VALUE(data, '$.status') AS NVARCHAR(255)) PERSISTED NOT NULL,
     data NVARCHAR(MAX) CHECK (ISJSON(data) = 1),
     momentCreated DATETIME2 DEFAULT GETDATE(),
     momentUpdated DATETIME2 DEFAULT GETDATE()
 );
 
--- Create unique indexes on computed columns
-CREATE UNIQUE NONCLUSTERED INDEX IX_Accounts_Username
-ON dbo.Accounts (username);
-
-CREATE UNIQUE NONCLUSTERED INDEX IX_Accounts_UUID
-ON dbo.Accounts (uuid);
+CREATE UNIQUE NONCLUSTERED INDEX IX_Lexicons_UUID
+ON dbo.Lexicon (uuid);
 
 -- Add check constraints to ensure required fields are present in JSON
-ALTER TABLE dbo.Accounts
-ADD CONSTRAINT CHK_Accounts_RequiredFields CHECK (
-    JSON_VALUE(data, '$.username') IS NOT NULL
-    AND JSON_VALUE(data, '$.uuid') IS NOT NULL
-    AND JSON_VALUE(data, '$.password') IS NOT NULL
-    AND JSON_VALUE(data, '$.salt') IS NOT NULL
-    AND JSON_QUERY(data, '$.roles') IS NOT NULL
-    AND JSON_QUERY(data, '$.roles') <> '[]'
+ALTER TABLE dbo.Lexicon
+ADD CONSTRAINT CHK_Lexicon_RequiredFields CHECK (
+     JSON_VALUE(data, '$.uuid') IS NOT NULL
+    AND JSON_VALUE(data, '$.code') IS NOT NULL
+    AND JSON_QUERY(data, '$.word') IS NOT NULL
     );
-
--- Add check constraint for valid subscription status
-ALTER TABLE dbo.Accounts
-ADD CONSTRAINT CHK_Accounts_ValidSubscriptionStatus CHECK (
-    JSON_VALUE(data, '$.subscriptionStatus') IN ('active', 'inactive', NULL)
-);
-
--- Add check constraint for valid account status
-ALTER TABLE dbo.Accounts
-ADD CONSTRAINT CHK_Accounts_ValidStatus CHECK (
+ 
+-- Add check constraint for valid lexicon status
+ALTER TABLE dbo.Lexicon
+ADD CONSTRAINT CHK_Lexicon_ValidStatus CHECK (
     JSON_VALUE(data, '$.status') IN ('active', 'inactive', 'deleted', NULL)
 );
 
@@ -49,9 +36,9 @@ ADD CONSTRAINT CHK_Accounts_ValidStatus CHECK (
 const { DataTypes, Model } = require('sequelize');
 const { sequelize } = require('../../config/sql');
 
-class Account extends Model {}
+class Lexicon extends Model {}
 
-Account.init({
+Lexicon.init({
   id: {
     type: DataTypes.INTEGER,
     autoIncrement: true,
@@ -62,9 +49,6 @@ Account.init({
     allowNull: false,
     validate: {
       isValidData(value) {
-
-        console.log("isValidData(value)", value)
- 
 
         // User information
         if (!value.uuid || !value.username || !value.password || !value.salt) {
@@ -122,8 +106,8 @@ Account.init({
 
 }, {
   sequelize,
-  modelName: 'Account',
-  tableName: 'Accounts',
+  modelName: 'Lexicon',
+  tableName: 'Lexicon',
   timestamps: true,
   createdAt: 'momentCreated',
   updatedAt: 'momentUpdated'
@@ -131,15 +115,15 @@ Account.init({
 });
 
 // Hook to update the momentUpdated field
-Account.beforeUpdate((account, options) => {
-  account.momentUpdated = new Date();
+Lexicon.beforeUpdate((lexicon, options) => {
+  lexicon.momentUpdated = new Date();
 });
 
-// Hook to set momentCreated when a new account is created
-Account.beforeCreate((account, options) => {
+// Hook to set momentCreated when a new lexicon is created
+Lexicon.beforeCreate((lexicon, options) => {
   const now = new Date();
-  account.momentCreated = now;
-  account.momentUpdated = now;
+  lexicon.momentCreated = now;
+  lexicon.momentUpdated = now;
 });
 
-module.exports = Account;
+module.exports = Lexicon;

@@ -32,7 +32,6 @@ async function createAccounts(accountsData) {
               Model.create({ data: item }, { transaction: t }) // No need to wrap item again
             )
           );
-          console.log("createdAccounts", createdAccounts);
           return createdAccounts.map((model) => model.get({ plain: true }).data);
         });
       } else {
@@ -44,7 +43,7 @@ async function createAccounts(accountsData) {
       throw error;
     }
   }
-  
+
 // Read - Admin only
 async function getAllAccounts() {
   const Model = getModel();
