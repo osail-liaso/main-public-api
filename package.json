@@ -1,6 +1,6 @@
 {
   "name": "main-public-api",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "Open source platform for LLM API integrations",
   "main": "index.js",
   "scripts": {},
@@ -16,7 +16,9 @@
     "openai",
     "gpt4",
     "gpt-3-5",
-    "personas"
+    "personas",
+    "interactions",
+    "tools"
   ],
   "author": "OSAIL-LIASO",
   "license": "MIT",
@@ -25,7 +27,6 @@
     "@azure/openai": "^1.0.0-beta.11",
     "@azure/storage-blob": "^12.15.0",
     "@deepgram/sdk": "^3.5.0",
-    "@distube/ytdl-core": "^4.13.5",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@mistralai/mistralai": "^0.5.0",
     "archiver": "^6.0.1",
@@ -35,6 +36,7 @@
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
     "express-winston": "^4.2.0",
+    "groq-sdk": "^0.5.0",
     "he": "^1.2.0",
     "helmet": "^7.0.0",
     "jsdom": "^22.1.0",
@@ -53,7 +55,6 @@
     "tedious": "^18.2.1",
     "uuid": "^9.0.0",
     "winston": "^3.11.0",
-    "ws": "^8.13.0",
-    "ytdl-core": "^4.11.5"
+    "ws": "^8.13.0"
   }
 }

@@ -4,6 +4,7 @@ const { v4: uuidv4 } = require("uuid");
 const OpenAI = require("openai");
 const Anthropic = require("@anthropic-ai/sdk");
 const { OpenAIClient, AzureKeyCredential } = require("@azure/openai");
+const {Groq} = require("groq-sdk");
 
 // User management for API keys and user tokens
 const Account = require("../models/mongo/documents/Account");
@@ -47,6 +48,9 @@ const services = {
   mistral:
     process.env.MISTRAL_API_KEY !== undefined &&
     process.env.MISTRAL_API_KEY !== "",
+  groq:
+    process.env.GROQ_API_KEY !== undefined &&
+    process.env.GROQ_API_KEY !== "",
 
 };
 
@@ -63,6 +67,9 @@ const azureOpenAiClient = services.azureOpenAi
       new AzureKeyCredential(process.env.AZURE_OPENAI_KEY)
     )
   : null;
+  const groqClient = services.groq
+  ? new Groq({ apiKey: process.env.GROQ_API_KEY })
+  : null;
 
 
 // Initialize Mistral client asynchronously
@@ -75,10 +82,7 @@ if (process.env.MISTRAL_API_KEY) {
   });
 }
 
-
-  // const mistralClient = process.env.MISTRAL_API_KEY
-  // ? new MistralClient(process.env.MISTRAL_API_KEY)
-  // : null;
+ 
 
 // Helper functions
 const hasMatchingApiKey = (account, provider) => {
@@ -219,6 +223,24 @@ const handlePrompt = async (promptConfig, sendToClient) => {
           );
           break;
 
+          case "groq":
+            if (!services.groq) break;
+            // console.log("mistral messages", messages)
+            responseStream = await handleGroqPrompt(account, {
+              
+              model,
+              stream:true,
+              messages: messages.map(msg => ({ role: msg.role, content: msg.content })),
+            });
+            await handlePromptResponse(
+              responseStream,
+              provider,
+              uuid,
+              session,
+              sendToClient
+            );
+            break;
+  
 
       default:
         sendToClient(
@@ -244,6 +266,8 @@ const handleOpenAiPrompt = async (account, promptConfig) => {
   const responseStream = await client.chat.completions.create(promptConfig);
   return responseStream;
 };
+
+
 
 const handleAnthropicPrompt = async (account, promptConfig) => {
   let client = anthropicClient;
@@ -274,6 +298,16 @@ const handleMistralPrompt = async (account, promptConfig) => {
 }
 
 };
+
+
+const handleGroqPrompt = async (account, promptConfig) => {
+  let client = groqClient;
+  if (account?.groqApiKey)
+    client = new Groq({ apiKey: account.groqApiKey });
+  const responseStream = await client.chat.completions.create(promptConfig);
+  return responseStream;
+};
+
  
 function convertArray(array) {
   let result = {
@@ -337,6 +371,12 @@ const handlePromptResponse = async (
       else if (provider === "mistral" && part.choices[0].delta.content !== undefined && !part.choices[0].finish_reason  ) {
           sendToClient(uuid, session, "message", part.choices[0].delta.content);
           }
+        // Add a condition for Mistral
+        else if (provider === "groq" && part?.choices?.[0]?.delta?.content   ) {
+          // console.log(part.choices[0])
+          sendToClient(uuid, session, "message", part.choices[0].delta.content);
+          }
+
       else {
         sendToClient(uuid, session, "EOM", null);
       }
