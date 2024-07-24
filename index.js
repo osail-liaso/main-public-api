@@ -22,6 +22,30 @@ app.use('/models', require('./routes/models'));
 app.use('/lexicon', require('./routes/lexicon'));
 app.use('/personas', require('./routes/personas'));
   
+
+// const {transcribeFile} = require("./tools/deepgram.js")
+// const {videoToAudio} = require("./tools/ffmpeg.js")
+// const {downloadYouTubeVideo, extractVideoId, dl, downloadVideoWithVLC, headersToJson} = require("./tools/youtube.js")
+
+
+// let url = 'https://www.youtube.com/watch?v=gWccaEqn9n0&t=2027s';
+// let videoId = extractVideoId(url);
+// dl();
+// downloadYouTubeVideo(videoId).then((outputPath)=>{
+//     console.log("outputPath", outputPath)
+// })
+
+// downloadVideoWithVLC(url, videoId);
+
+//Convert headers to JSON
+// let myAuthHeaders = headersToJson("./downloads/_authHeaders.txt");
+// console.log("Cookie", myAuthHeaders.Cookie)
+
+//  transcribeFile("sinek.mp3").then((results)=>{
+//     console.log('deepgram results', results)
+
+// });
+
 //Establish a 404 Not Found Custom Response
 app.use((req, res, next) => {
     const error = new Error('This site was not found. Perhaps you want to call login?');

@@ -4,3 +4,8 @@ assets
 .env
 combined.log
 requests.log
+
+# Ignore everything in the downloads folder
+downloads/*
+# But not placeholder.txt
+!downloads/placeholder.txt

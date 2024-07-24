@@ -1,0 +1,2 @@
+This placeholder keeps the folder available for the system to download into. 
+This folder is for transitory downloads, and should always be cleaned up at the end of a function call.
