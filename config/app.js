@@ -44,7 +44,7 @@ var devCorsOptions = {
 };
 
 var prodCorsOptions = {
-  origin: ["https://osail-liaso.com"], //restrict to only use this domain for requests
+  origin: "*", //restrict to only use this domain for requests
   exposedHeaders: [
     "Content-Length",
     "Content-Type",
