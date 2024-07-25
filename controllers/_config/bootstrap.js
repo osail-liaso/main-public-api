@@ -5,6 +5,72 @@ const { createAccounts } = require("../../dal/accountsDal");
 const { createPersonas } = require("../../dal/personasDal");
 const { createModels, getModelByProviderAndName } = require("../../dal/modelsDal");
 
+
+
+
+// Import the DAL functions
+const {
+  performDatabaseOperation,
+  createTableIfNotExists,
+} = require("../../dal/common/commonDal");
+
+// Call this function when your app starts to ensure the table is created
+//IF USING SEQUELIZE
+try {
+  const accountTableDef = require("../../models/sql/Account").tableDef;
+  (async () => {
+    await createTableIfNotExists(accountTableDef, "Accounts");
+  })();
+} catch (error) {
+  console.error("Sequelize model tableDef not found:", error);
+}
+
+//Create the methods array. Use whichever method you prefer in your app
+function createMethodsArray(data, criteria) {
+  let sequelizeModel, sequelizeTableDef, mongoDbModel;
+
+  //IF USING SEQUELIZE
+  try {
+    const sequelizeAccount = require("../../models/sql/Account");
+    sequelizeModel = sequelizeAccount.Account;
+    sequelizeTableDef = sequelizeAccount.tableDef;
+  } catch (error) {
+    console.error("Sequelize model could not be loaded:", error);
+    sequelizeModel = null;
+    sequelizeTableDef = null;
+  }
+
+  //IF USING MONGODB
+  try {
+    mongoDbModel = require("../../models/mongo/documents/Account");
+  } catch (error) {
+    console.error("MongoDB model could not be loaded:", error);
+    mongoDbModel = null;
+  }
+
+  return [
+    //IF USING SEQUELIZE
+    {
+      name: "Account",
+      method: "sequelize",
+      model: sequelizeModel,
+      tableDef: sequelizeTableDef,
+      data: data,
+      criteria: criteria,
+    },
+    //IF USING MONGODB
+    {
+      name: "Account",
+      method: "mongoDb",
+      model: mongoDbModel,
+      data: data,
+      criteria: criteria,
+    },
+  ];
+}
+
+
+
 // Accepts a new account and saves it to the database
 exports.createAdminAccount = async function (req, res, next) {
   try {
@@ -14,7 +80,7 @@ exports.createAdminAccount = async function (req, res, next) {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(plainPassword, salt);
 
-    const newAccount = {
+    const newAccounts = [{
       uuid: uuidv4(),
       username: "osailAdmin",
       email: "test@email.com",
@@ -26,9 +92,14 @@ exports.createAdminAccount = async function (req, res, next) {
       subscriptionStatus: "active",
       password: hashedPassword,
       salt,
-    };
+    }];
 
-    const createdAccounts = await createAccounts(newAccount);
+    const methods = createMethodsArray(newAccounts, null);
+    const createdAccounts = await performDatabaseOperation({
+      operation: "create",
+      methods,
+    });
+
     if (createdAccounts.length) {
       const newToken = createJWT(createdAccounts[0], req.fullUrl);
       res.header("auth-token", newToken.token);
@@ -38,7 +109,7 @@ exports.createAdminAccount = async function (req, res, next) {
     res.status(201).send({
       message:
         "Bootstrap initiated to create an admin account. Record this password, it is the last time it will be shown",
-      payload: { username: newAccount.username, password: plainPassword },
+      payload: { username: newAccounts[0].username, password: plainPassword },
     });
   } catch (error) {
     console.error("Bootstrap error:", error);

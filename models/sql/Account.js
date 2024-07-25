@@ -1,12 +1,18 @@
-
-/*
-//Table Definitions
+ 
+const { DataTypes, Model } = require('sequelize');
+const { sequelize } = require('../../config/sql');
+const tableDef = 
+`
+IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'dbo' AND TABLE_NAME = 'Accounts')
+BEGIN
+  -- SQL statements to create table, indexes, and constraints
 
 -- Create the Accounts table
 CREATE TABLE dbo.Accounts (
     id INT IDENTITY(1,1) PRIMARY KEY,
     uuid AS CAST(JSON_VALUE(data, '$.uuid') AS NVARCHAR(36)) PERSISTED NOT NULL,
     username AS CAST(JSON_VALUE(data, '$.username') AS NVARCHAR(255)) PERSISTED NOT NULL,
+    password AS CAST(JSON_VALUE(data, '$.password') AS NVARCHAR(255)) PERSISTED NOT NULL,
     status AS CAST(JSON_VALUE(data, '$.status') AS NVARCHAR(255)) PERSISTED NOT NULL,
     data NVARCHAR(MAX) CHECK (ISJSON(data) = 1),
     momentCreated DATETIME2 DEFAULT GETDATE(),
@@ -42,13 +48,8 @@ ALTER TABLE dbo.Accounts
 ADD CONSTRAINT CHK_Accounts_ValidStatus CHECK (
     JSON_VALUE(data, '$.status') IN ('active', 'inactive', 'deleted', NULL)
 );
-
-
-*/
- 
-const { DataTypes, Model } = require('sequelize');
-const { sequelize } = require('../../config/sql');
-
+END
+`
 class Account extends Model {}
 
 Account.init({
@@ -142,4 +143,4 @@ Account.beforeCreate((account, options) => {
   account.momentUpdated = now;
 });
 
-module.exports = Account;
+module.exports = {Account, tableDef};

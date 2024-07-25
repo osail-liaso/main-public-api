@@ -87,18 +87,17 @@ app.use((req, res, next) => {
 
 //Connect to the Database (Mongoose for MongoDB and Azure CosmosDB)
 //MongoDB or CosmosDB connector using Mongoose ODM
-if (process.env.DATASTORE == "MONGODB" || process.env.DATASTORE == "COSMODB") {
-  const initDb = require("./mongoose").initDb;
-  initDb(function (err) {
+if (process.env.MONGODB) {
+  const initMongoDb = require("./mongoose").initDb;
+  initMongoDb(function (err) {
     if (err) throw err;
   });
 }
 
-//Connect to the Database (Mongoose for MongoDB and Azure CosmosDB)
-//MongoDB or CosmosDB connector using Mongoose ODM
-if (process.env.DATASTORE == "SQLDB") {
-  const initDb = require("./sql").initDb;
-  initDb(function (err) {
+//Connect to the Database (SQL Server or any Sequelize Database)
+if (process.env.SQL_SERVER) {
+  const initSqlDb = require("./sql").initDb;
+  initSqlDb(function (err) {
     if (err) throw err;
   });
 }

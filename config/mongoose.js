@@ -20,7 +20,7 @@ function initDb(callback) {
     //Connect
     mongoose.connect(url, options).then((connection)=>{
         _db = connection;
-        console.log(`Connected to ${process.env.DATASTORE} with the Mongoose ODM Plugin`);
+        console.log(`Connected to MongoDB with the Mongoose ODM Plugin`);
     }).catch((error)=>{
         console.log(error)
     });

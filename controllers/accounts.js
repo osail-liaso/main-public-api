@@ -1,27 +1,73 @@
-
 const uuidv4 = require("uuid").v4;
 const ApiError = require("../error/ApiError");
-const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
-const JSZip = require('jszip');
-const upload = require('../services/upload');
-const fs = require('fs').promises;
 const { createJWT } = require("../middleware/verify");
-
 
 // Import the DAL functions
 const {
-  createAccount,
-  getAccountById,
-  getAccountByUsername,
-  updateAccount,
-  deleteAccount,
-  getAllAccounts,
-} = require('../dal/accountsDal');
+  performDatabaseOperation,
+  createTableIfNotExists,
+} = require("../dal/common/commonDal");
 
+// Call this function when your app starts to ensure the table is created
+//IF USING SEQUELIZE
+try {
+  const accountTableDef = require("../models/sql/Account").tableDef;
+  (async () => {
+    await createTableIfNotExists(accountTableDef, "Accounts");
+  })();
+} catch (error) {
+  console.error("Sequelize model tableDef not found:", error);
+}
 
+//Create the methods array. Use whichever method you prefer in your app
+function createMethodsArray(data, criteria) {
+  let sequelizeModel, sequelizeTableDef, mongoDbModel;
+
+  //IF USING SEQUELIZE
+  try {
+    const sequelizeAccount = require("../models/sql/Account");
+    sequelizeModel = sequelizeAccount.Account;
+    sequelizeTableDef = sequelizeAccount.tableDef;
+  } catch (error) {
+    console.error("Sequelize model could not be loaded:", error);
+    sequelizeModel = null;
+    sequelizeTableDef = null;
+  }
+
+  //IF USING MONGODB
+  try {
+    mongoDbModel = require("../models/mongo/documents/Account");
+  } catch (error) {
+    console.error("MongoDB model could not be loaded:", error);
+    mongoDbModel = null;
+  }
+
+  return [
+    //IF USING SEQUELIZE
+    {
+      name: "Account",
+      method: "sequelize",
+      model: sequelizeModel,
+      tableDef: sequelizeTableDef,
+      data: data,
+      criteria: criteria,
+    },
+    //IF USING MONGODB
+    {
+      name: "Account",
+      method: "mongoDb",
+      model: mongoDbModel,
+      data: data,
+      criteria: criteria,
+    },
+  ];
+}
+
+//Controller Methods / Endpoints
 exports.createNewAccount = async function (req, res, next) {
-  const { username, email, useCase, notes, preferredLng, password, password2 } = req.body;
+  const { username, password, password2, email, useCase, notes, preferredLng } =
+    req.body;
 
   if (!username) {
     return res.status(400).json({ message: "noUsername", payload: null });
@@ -33,7 +79,9 @@ exports.createNewAccount = async function (req, res, next) {
   }
 
   if (!password || password.length < 8 || password !== password2) {
-    return res.status(400).json({ message: "passwordsDontMatch", payload: null });
+    return res
+      .status(400)
+      .json({ message: "passwordsDontMatch", payload: null });
   }
 
   const salt = await bcrypt.genSalt(10);
@@ -54,17 +102,35 @@ exports.createNewAccount = async function (req, res, next) {
   };
 
   try {
-    const createdAccount = await createAccount(newAccount);
-    const newToken = createJWT({uuid:newAccount.uuid, username:newAccount.username, roles:newAccount.roles, status:newAccount.status}, req.fullUrl);
-    res.header("auth-token", newToken.token);
-    res.header("auth-token-decoded", JSON.stringify(newToken.tokenDecoded));
-    res.status(200).json({
-      message: "success",
-      payload: {
-        token: newToken.token,
-        tokenDecoded: newToken.tokenDecoded,
-      },
+    const methods = createMethodsArray(newAccount, null);
+    const createdAccount = await performDatabaseOperation({
+      operation: "create",
+      methods,
     });
+    if (createdAccount) {
+      const newToken = createJWT(
+        {
+          uuid: newAccount.uuid,
+          username: newAccount.username,
+          roles: newAccount.roles,
+          status: newAccount.status,
+        },
+        req.fullUrl
+      );
+      res.header("auth-token", newToken.token);
+      res.header("auth-token-decoded", JSON.stringify(newToken.tokenDecoded));
+      res.status(200).json({
+        message: "success",
+        payload: {
+          token: newToken.token,
+          tokenDecoded: newToken.tokenDecoded,
+        },
+      });
+    }
+    else
+    {
+      res.status(500).json({ message: "Failed to create account.", payload: null });
+    }
   } catch (error) {
     res.status(500).json({ message: "failure", payload: null });
   }
@@ -78,7 +144,16 @@ exports.login = async function (req, res, next) {
       throw ApiError.badRequest("Username and password are required.");
     }
 
-    const account = await getAccountByUsername(username);
+    const methods = createMethodsArray(null, {"username":username});
+    // console.log('Methods', methods)
+    const accounts = await performDatabaseOperation({
+      operation: "readOne",
+      methods,
+    });
+
+    console.log("Accounts", accounts);
+    let account = accounts[0];
+
     if (!account) {
       throw ApiError.notFound("Account not found.");
     }
@@ -88,45 +163,50 @@ exports.login = async function (req, res, next) {
       throw ApiError.unauthorized("Incorrect password.");
     }
 
-    // Update last login timestamp
-    const updatedAccount = await updateAccount(account.id, {
-      momentLastLogin: new Date(),
-      momentFirstLogin: account.momentFirstLogin || new Date(),
-    });
-
-    const tokenInfo = { uuid: updatedAccount.uuid, username: updatedAccount.username, roles: updatedAccount.roles, status: updatedAccount.status };
+    const tokenInfo = {
+      uuid: account.uuid,
+      username: account.username,
+      roles: account.roles,
+      status: account.status,
+    };
     const newToken = createJWT(tokenInfo, "login");
     res.header("auth-token", newToken.token);
     res.header("auth-token-decoded", JSON.stringify(newToken.tokenDecoded));
-    res.status(200).json({ message: "Login successful", token: newToken.token });
+    res
+      .status(200)
+      .json({ message: "Login successful", token: newToken.token });
   } catch (error) {
     next(error);
   }
-
 };
-
 
 exports.getAccounts = async function (req, res, next) {
   try {
     const accountInfo = await getAllAccounts();
-    
-      res.status(200).json({ message: "Here is the account info", payload: accountInfo });
-   } catch (error) {
+
+    res
+      .status(200)
+      .json({ message: "Here is the account info", payload: accountInfo });
+  } catch (error) {
     next(error);
   }
 };
-
 
 exports.accountOwn = async function (req, res, next) {
   try {
     const username = req.tokenDecoded.username;
     const accountInfo = await getAccountByUsername(username);
-    
+
     if (accountInfo && accountInfo.status === "active") {
       const { password, salt, ...safeAccountInfo } = accountInfo;
-      res.status(200).json({ message: "Here is the account info", payload: safeAccountInfo });
+      res.status(200).json({
+        message: "Here is the account info",
+        payload: safeAccountInfo,
+      });
     } else {
-      res.status(404).json({ message: "No active account found", payload: null });
+      res
+        .status(404)
+        .json({ message: "No active account found", payload: null });
     }
   } catch (error) {
     next(error);
@@ -137,22 +217,30 @@ exports.accountOwnUpdate = async function (req, res, next) {
   try {
     const username = req.tokenDecoded.username;
     let accountData = req.body.account || {};
-    
+
     if (accountData.username !== username) {
-      return res.status(403).json({ message: "Usernames do not match.", payload: null });
+      return res
+        .status(403)
+        .json({ message: "Usernames do not match.", payload: null });
     }
 
     const account = await getAccountByUsername(username);
     if (!account || account.status !== "active") {
-      return res.status(404).json({ message: "No active account found", payload: null });
+      return res
+        .status(404)
+        .json({ message: "No active account found", payload: null });
     }
 
     const updatedAccount = await updateAccount(account.id, accountData);
 
     if (updatedAccount) {
-      res.status(200).json({ message: "Account updated", payload: updatedAccount });
+      res
+        .status(200)
+        .json({ message: "Account updated", payload: updatedAccount });
     } else {
-      res.status(500).json({ message: "Error updating account", payload: null });
+      res
+        .status(500)
+        .json({ message: "Error updating account", payload: null });
     }
   } catch (error) {
     next(error);
@@ -163,16 +251,20 @@ exports.accountOwnDelete = async function (req, res, next) {
   try {
     const username = req.tokenDecoded.username;
     const account = await getAccountByUsername(username);
-    
+
     if (account && account.status === "active") {
       const deleteResult = await deleteAccount(account.id);
       if (deleteResult) {
         res.status(200).json({ message: "Account deleted" });
       } else {
-        res.status(500).json({ message: "Error deleting account", payload: null });
+        res
+          .status(500)
+          .json({ message: "Error deleting account", payload: null });
       }
     } else {
-      res.status(404).json({ message: "No active account found", payload: null });
+      res
+        .status(404)
+        .json({ message: "No active account found", payload: null });
     }
   } catch (error) {
     next(error);
@@ -184,10 +276,14 @@ exports.accountOwnDelete = async function (req, res, next) {
 exports.allAccountInfo = async function (req, res, next) {
   try {
     const accounts = await getAllAccounts();
-    const safeAccounts = accounts.map(({ password, salt, ...safeAccount }) => safeAccount);
+    const safeAccounts = accounts.map(
+      ({ password, salt, ...safeAccount }) => safeAccount
+    );
 
     if (safeAccounts.length > 0) {
-      res.status(200).json({ message: "Here are all accounts info", payload: safeAccounts });
+      res
+        .status(200)
+        .json({ message: "Here are all accounts info", payload: safeAccounts });
     } else {
       res.status(404).json({ message: "No active accounts found" });
     }
@@ -218,9 +314,13 @@ exports.deleteAccounts = async function (req, res, next) {
     }
 
     if (deleted > 0) {
-      res.status(200).json({ message: "Accounts deleted", payload: { deleted, errors } });
+      res
+        .status(200)
+        .json({ message: "Accounts deleted", payload: { deleted, errors } });
     } else {
-      res.status(404).json({ message: "No active accounts found", payload: null });
+      res
+        .status(404)
+        .json({ message: "No active accounts found", payload: null });
     }
   } catch (error) {
     next(error);
