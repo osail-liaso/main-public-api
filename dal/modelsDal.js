@@ -81,6 +81,7 @@ async function getActiveModels() {
         const models = await Model.findAll({
             where: sequelize.literal("JSON_VALUE(data, '$.status') = 'active'")
         });
+        console.log(models)
         
         return models.map(model => model.data);
     } else {

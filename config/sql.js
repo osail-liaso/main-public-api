@@ -1,6 +1,7 @@
 require("dotenv").config();
 const { Sequelize } = require("sequelize");
 
+
 const config = {
   dialect: "mssql",
   host: process.env.SQL_SERVER,
@@ -13,6 +14,24 @@ const config = {
     min: 1,
     acquire: 30000,
     idle: 10000,
+    validate: async (connection) => {
+      try {
+        await connection.authenticate(); // Check if the connection is valid
+        return true; // The connection is valid
+      } catch (err) {
+        console.error("Invalid DB connection:", err);
+        return false; // The connection is invalid
+      }
+    },
+  },
+  retry: {
+    max: 3, // How many times a failing query is automatically retried
+    match: [
+      Sequelize.ConnectionError, // Retry on connectivity errors
+      Sequelize.ConnectionRefusedError,
+      Sequelize.ConnectionTimedOutError,
+      Sequelize.TimeoutError,
+    ],
   },
   dialectOptions: {
     options: {
@@ -28,6 +47,7 @@ if (process.env.SQL_USE_WINDOWS_AUTH === "true") {
   delete config.username;
   delete config.password;
 }
+ 
 
 const sequelize = new Sequelize(config);
 
