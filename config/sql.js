@@ -1,6 +1,8 @@
 require("dotenv").config();
 const { Sequelize } = require("sequelize");
 
+// Database keep-alive interval in milliseconds
+const KEEP_ALIVE_INTERVAL = 5 * 60 * 1000; // e.g., 5 minutes
 
 const config = {
   dialect: "mssql",
@@ -36,7 +38,8 @@ const config = {
   dialectOptions: {
     options: {
       encrypt: process.env.SQL_ENCRYPT === "true",
-      trustServerCertificate: process.env.SQL_TRUST_SERVER_CERTIFICATE === "true",
+      trustServerCertificate:
+        process.env.SQL_TRUST_SERVER_CERTIFICATE === "true",
       enableArithAbort: true,
     },
   },
@@ -47,9 +50,35 @@ if (process.env.SQL_USE_WINDOWS_AUTH === "true") {
   delete config.username;
   delete config.password;
 }
- 
 
 const sequelize = new Sequelize(config);
+
+// Function to send a keep-alive query to the database
+function keepAlive() {
+  sequelize.query("SELECT 1").catch((err) => {
+    console.error("Keep-alive query failed:", err);
+  });
+}
+
+// Start the keep-alive interval
+const keepAliveInterval = setInterval(keepAlive, KEEP_ALIVE_INTERVAL);
+
+// Function to clear the keep-alive interval and close connections
+function cleanup() {
+  clearInterval(keepAliveInterval);
+  sequelize
+    .close()
+    .then(() => {
+      console.log("Database connections closed gracefully");
+    })
+    .catch((err) => {
+      console.error("Error closing database connections:", err);
+    });
+}
+
+// Handle application shutdown gracefully
+process.on("SIGINT", cleanup);
+process.on("SIGTERM", cleanup);
 
 async function initDb() {
   console.log("Initializing SQL DB Connection");
@@ -65,4 +94,5 @@ async function initDb() {
 module.exports = {
   initDb,
   sequelize,
+  cleanup,
 };
