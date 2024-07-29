@@ -42,11 +42,7 @@ AIModel.init(
     data: {
       type: DataTypes.JSON,
       allowNull: false,
-      // validate: {
-      //   isValidData(value) {
-      //     // Your validation logic here
-      //   },
-      // },
+
       get() {
         const rawValue = this.getDataValue("data");
         if (typeof rawValue === "string") {

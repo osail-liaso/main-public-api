@@ -37,29 +37,6 @@ Persona.init(
     data: {
       type: DataTypes.JSON,
       allowNull: false,
-      // validate: {
-      //   isValidData(value) {
-      //     // User information
-      //     if (
-      //       !value.uuid ||
-      //       !value.name ||
-      //       !value.description ||
-      //       !value.status
-      //     ) {
-      //       throw new Error("uuid, name, description, and status are required");
-      //     }
-
-      //     // Status
-      //     if (
-      //       value.status &&
-      //       !["active", "inactive", "deleted"].includes(value.status)
-      //     ) {
-      //       throw new Error("Invalid status");
-      //     }
-
-      //     // Add more validations as needed
-      //   },
-      // },
       get() {
         const rawValue = this.getDataValue("data");
 

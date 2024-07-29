@@ -39,35 +39,6 @@ Lexicon.init({
   data: {
     type: DataTypes.JSON,
     allowNull: false,
-    // validate: {
-    //   isValidData(value) {
-
-    //     // User information
-    //     if (!value.uuid || !value.username || !value.password || !value.salt) {
-    //       throw new Error('uuid, username, password, and salt are required');
-    //     }
-
-    //     if (!value.roles || !Array.isArray(value.roles) || value.roles.length === 0) {
-    //       throw new Error('roles must be a non-empty array');
-    //     }
-
-    //     if (!['user', 'contributor', 'owner', 'admin'].some(role => value.roles.includes(role))) {
-    //       throw new Error('Invalid role');
-    //     }
-
-    //     // Subscription status
-    //     if (value.subscriptionStatus && !['active', 'inactive'].includes(value.subscriptionStatus)) {
-    //       throw new Error('Invalid subscription status');
-    //     }
-
-    //     // Status
-    //     if (value.status && !['active', 'inactive', 'deleted'].includes(value.status)) {
-    //       throw new Error('Invalid status');
-    //     }
-
-    //     // Add more validations as needed
-    //   }
-    // },
     get() {
       const rawValue = this.getDataValue('data');
 
