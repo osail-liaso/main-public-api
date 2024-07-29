@@ -37,7 +37,7 @@ var devCorsOptions = {
     "auth-token",
     "auth-token-decoded",
   ],
-  allowedHeaders: ["auth-token", "auth-token-decoded"], // Allow custom headers if needed
+  allowedHeaders: "*",//["Authorization", "auth-token", "auth-token-decoded"], // Allow custom headers if needed
   credentials: true, // Allow credentials (cookies, authorization headers, etc.)
   optionsSuccessStatus: 200, // For legacy browser support
   methods: "GET, POST, PUT, DELETE", //allowable methods
@@ -51,7 +51,7 @@ var prodCorsOptions = {
     "auth-token",
     "auth-token-decoded",
   ],
-  allowedHeaders: ["auth-token", "auth-token-decoded"], // Allow custom headers if needed
+  allowedHeaders: "*",//["Authorization", "auth-token", "auth-token-decoded"], // Allow custom headers if needed
   credentials: true, // Allow credentials (cookies, authorization headers, etc.)
   optionsSuccessStatus: 200, // For legacy browser support
   methods: "GET, POST, PUT, DELETE", //allowable methods

@@ -23,18 +23,18 @@ const {
 //DECIDE WHICH DATABASE METHODS AND SCHEMAS YOU'RE USING
 //Remove one of the other, depending on your DB preferences
 //Or keep them both for simultaneous sync of 2 separate DBs
-const schemas = []
-if(process.env.SQL_SERVER) schemas.push(
-  {
+const schemas = [];
+if (process.env.SQL_SERVER)
+  schemas.push({
     method: "sequelize",
     model: SchemaMsSql,
     tableDef: tableDef,
     name: "AccountSequelize",
   });
 
-  //If there is a MongoDB connection string 
-  if(process.env.MONGODB) schemas.push(
-    {
+//If there is a MongoDB connection string
+if (process.env.MONGODB)
+  schemas.push({
     method: "mongoDb",
     model: SchemaMongo,
     name: "AccountMongoDb",
@@ -60,48 +60,47 @@ if(process.env.SQL_SERVER) schemas.push(
 exports.bootstrapAdminAccount = async function (req, res, next) {
   try {
     //Create Admin Password
-    let plainPassword = "strongAdminPassword" + uuidv4();
+    const plainPassword = "strongAdminPassword" + uuidv4();
+    const passwordResetToken =
+      uuidv4() + " " + uuidv4() + " " + uuidv4() + " " + uuidv4();
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(plainPassword, salt);
+    const hashedPasswordResetToken = await bcrypt.hash(
+      passwordResetToken,
+      salt
+    );
 
     //Make a new admin account
     const newAccount = {
       uuid: uuidv4(),
       username: "osailAdmin",
-      email: "test@email.com",
-      useCase: "administrator",
-      notes: "default administrator account",
+      email: "admin@osail-liaso.com",
+      useCase: "Administrator",
+      notes: "Default administrator account",
       preferredLng: "en",
       roles: ["admin", "user"],
       status: "active",
       subscriptionStatus: "active",
       password: hashedPassword,
       salt,
+      passwordResetToken: hashedPasswordResetToken,
     };
 
-    //Create and save the content
-    //Step 1 Validate and complete the json using Joi schema
     let validatedJson = validateAgainstSchema(AccountSchemaJoi, newAccount);
     if (!validatedJson.error) {
-      //Step 2 Then create the methods array to save to the applicable DBs
-      //Step 3 Then perform the database operations
       performDatabaseOperation({
         operation: "create",
         methods: createMethodsArray([validatedJson.value], null, schemas),
       })
-        .then((createdAccounts) => {
-          console.log("Created Account(s)", createdAccounts);
-          const newToken = createJWT(newAccount, req.fullUrl);
-          res.header("auth-token", newToken.token);
-          res.header(
-            "auth-token-decoded",
-            JSON.stringify(newToken.tokenDecoded)
-          );
-
+        .then(() => {
           res.status(201).send({
             message:
               "Bootstrap initiated to create an admin account. Record this password, it is the last time it will be shown",
-            payload: { username: newAccount.username, password: plainPassword },
+            payload: {
+              username: newAccount.username,
+              password: plainPassword,
+              passwordResetToken: passwordResetToken,
+            },
           });
         })
         .catch((err) => {
@@ -118,7 +117,7 @@ exports.bootstrapAdminAccount = async function (req, res, next) {
   }
 };
 
-//Controller Methods / Endpoints
+//Create a single new account based on the user form
 exports.createNewAccount = async function (req, res, next) {
   const { username, password, password2, email, useCase, notes, preferredLng } =
     req.body;
@@ -127,9 +126,14 @@ exports.createNewAccount = async function (req, res, next) {
     return res.status(400).json({ message: "noUsername", payload: null });
   }
 
-  const existingAccount = await getAccountByUsername(username);
-  if (existingAccount) {
-    return res.status(400).json({ message: "userExists", payload: null });
+  let existingAccounts = await performDatabaseOperation({
+    operation: "readOne",
+    methods: createMethodsArray(null, { username: username }, schemas),
+  });
+  if (existingAccounts.length) {
+    return res
+      .status(400)
+      .json({ message: "Username already exists", payload: null });
   }
 
   if (!password || password.length < 8 || password !== password2) {
@@ -138,8 +142,12 @@ exports.createNewAccount = async function (req, res, next) {
       .json({ message: "passwordsDontMatch", payload: null });
   }
 
+  //Create the cryptographic fields
+  const passwordResetToken =
+    uuidv4() + " " + uuidv4() + " " + uuidv4() + " " + uuidv4();
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(password, salt);
+  const hashedPasswordResetToken = await bcrypt.hash(passwordResetToken, salt);
 
   const newAccount = {
     uuid: uuidv4(),
@@ -152,47 +160,41 @@ exports.createNewAccount = async function (req, res, next) {
     status: "active",
     salt,
     password: hashedPassword,
+    passwordResetToken: hashedPasswordResetToken,
     momentCreated: new Date(),
   };
 
   try {
-    //Create and save the content
-    //Step 1 Validate and complete the json using Joi schema
     let validatedJson = validateAgainstSchema(AccountSchemaJoi, newAccount);
+    if (!validatedJson.error) {
+      performDatabaseOperation({
+        operation: "create",
+        methods: createMethodsArray([validatedJson.value], null, schemas),
+      })
+        .then((createdAccounts) => {
+          const newToken = createJWT(newAccount, req.fullUrl);
+          res.header("auth-token", newToken.token);
+          res.header(
+            "auth-token-decoded",
+            JSON.stringify(newToken.tokenDecoded)
+          );
 
-    //Step 2 Then create the methods array to save to the applicable DBs
-    const methods = createMethodsArray(validatedJson, null, schemas);
-
-    //Step 3 Then perform the database operations
-    const createdAccount = await performDatabaseOperation({
-      operation: "create",
-      methods,
-    });
-
-    //Step 4 Ensure success
-    if (createdAccount) {
-      const newToken = createJWT(
-        {
-          uuid: newAccount.uuid,
-          username: newAccount.username,
-          roles: newAccount.roles,
-          status: newAccount.status,
-        },
-        req.fullUrl
-      );
-      res.header("auth-token", newToken.token);
-      res.header("auth-token-decoded", JSON.stringify(newToken.tokenDecoded));
-      res.status(200).json({
-        message: "success",
-        payload: {
-          token: newToken.token,
-          tokenDecoded: newToken.tokenDecoded,
-        },
-      });
+          res.status(201).send({
+            message:
+              "Account created, and auth token returned in the request header. Note down the password reset token. Proceed to dashboard.",
+            payload: {
+              username: newAccount.username,
+              passwordResetToken: passwordResetToken,
+            },
+          });
+        })
+        .catch((err) => {
+          res.status(400).json({ message: "Query error", payload: err });
+        });
     } else {
       res
-        .status(500)
-        .json({ message: "Failed to create account.", payload: null });
+        .status(400)
+        .json({ message: "Validation error", payload: validatedJson.error });
     }
   } catch (error) {
     res.status(500).json({ message: "failure", payload: null });
@@ -207,15 +209,13 @@ exports.login = async function (req, res, next) {
       throw ApiError.badRequest("Username and password are required.");
     }
 
-    const methods = createMethodsArray(null, { username: username });
-    // console.log('Methods', methods)
-    const accounts = await performDatabaseOperation({
+    let account = null;
+    let accounts = await performDatabaseOperation({
       operation: "readOne",
-      methods,
+      methods: createMethodsArray(null, { username: username }, schemas),
     });
 
-    console.log("Accounts", accounts);
-    let account = accounts[0];
+    if (accounts.length) account = accounts[0];
 
     if (!account) {
       throw ApiError.notFound("Account not found.");
@@ -237,11 +237,69 @@ exports.login = async function (req, res, next) {
     res.header("auth-token-decoded", JSON.stringify(newToken.tokenDecoded));
     res
       .status(200)
-      .json({ message: "Login successful", token: newToken.token });
+      .json({ message: "Login successful", payload: {token:newToken.token, tokenDecoded:newToken.tokenDecoded} });
   } catch (error) {
     next(error);
   }
 };
+exports.resetPassword = async function (req, res, next) {
+  try {
+    // Username, new password, and reset token
+    let username = req.body.username;
+    let newPassword = req.body.newPassword;
+    let passwordResetToken = req.body.passwordResetToken;
+
+    if (!username || !newPassword || !passwordResetToken) {
+      throw ApiError.notFound("Missing username, new password, or password reset token");
+    }
+
+    let accounts = await performDatabaseOperation({
+      operation: "readOne",
+      methods: createMethodsArray(null, { username: username }, schemas),
+    });
+
+    if (!accounts.length) {
+        throw ApiError.notFound("Account not found.");
+    }
+
+    let account = accounts[0];
+    const passwordResetTokensMatch = await bcrypt.compare(passwordResetToken, account.passwordResetToken);
+    if (!passwordResetTokensMatch) {
+      throw ApiError.notFound("Password reset token does not match. Please contact your administrator for a manual reset");
+    }
+
+    // Proceed with the reset
+    // Make new token, salt
+    const newPasswordResetToken = uuidv4() + " " + uuidv4() + " " + uuidv4() + " " + uuidv4();
+    const newSalt = await bcrypt.genSalt(10);
+    const newHashedPassword = await bcrypt.hash(newPassword, newSalt);
+    const newHashedPasswordResetToken = await bcrypt.hash(newPasswordResetToken, newSalt);
+
+    //Update the account
+    account.salt = newSalt;
+    account.password = newHashedPassword;
+    account.passwordResetToken = newHashedPasswordResetToken;
+
+    //Perform the DB update
+    await performDatabaseOperation({
+      operation: "update",
+      methods: createMethodsArray(account, { username: username }, schemas),
+    });
+
+    //Send the response
+    res.status(200).json({
+      message: "Password updated. A new reset token has been provided for future use.",
+      payload: { passwordResetToken: newPasswordResetToken },
+    });
+  } catch (error) {
+    console.error("Error attempting password reset:", error);
+    res.status(500).json({
+      message: "Error attempting password reset",
+      payload: error.message,
+    });
+  }
+};
+
 
 exports.getAccounts = async function (req, res, next) {};
 
@@ -249,7 +307,18 @@ exports.accountOwn = async function (req, res, next) {};
 
 exports.accountOwnUpdate = async function (req, res, next) {};
 
-exports.accountOwnDelete = async function (req, res, next) {};
+exports.accountOwnDelete = async function (req, res, next) {
+  let username = req?.tokenDecoded?.username;
+  if (username) {
+    let deleteAccount = await performDatabaseOperation({
+      operation: "delete",
+      methods: createMethodsArray(null, { username: username }, schemas),
+    });
+    res
+      .status(200)
+      .json({ message: "Test Delete", accountsDeleted: deleteAccount });
+  }
+};
 
 // ... (keep other functions like accountOwnDataDownload, accountOwnDataUpload, accountOwnDataDelete as they are)
 

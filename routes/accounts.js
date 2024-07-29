@@ -13,12 +13,13 @@ router.get('/bootstrap',   accountsController.bootstrapAdminAccount);
 //Login
 router.post('/',  accountsController.createNewAccount);
 router.post('/login', accountsController.login);
+router.post('/resetPassword', accountsController.resetPassword);
 
 //User Functions
 // //Manage Accounts
 // router.get('/own',  [isAuthenticated, renewToken], accountsController.accountOwn); //Returns account info
 // router.post('/own/update',  [isAuthenticated], accountsController.accountOwnUpdate); //Deletes account
-// router.post('/own/delete',  [isAuthenticated], accountsController.accountOwnDelete); //Deletes account
+router.delete('/own',  [isAuthenticated], accountsController.accountOwnDelete); //Deletes account
 
 // //Manage Data
 // router.post('/own/data/download',  [isAuthenticated, renewToken], accountsController.accountOwnDataDownload);

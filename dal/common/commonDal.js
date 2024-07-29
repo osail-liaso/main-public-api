@@ -44,7 +44,7 @@ function createMethodsArray(data, criteria, schemas, queryLiteral = null) {
         tableDef: tableDef,
         data: data,
         criteria: criteria,
-        queryLiteral:queryLiteral //An override query if the method requires a specific custom query
+        queryLiteral: queryLiteral, //An override query if the method requires a specific custom query
       };
     })
     .filter((method) => method.model !== null); // Filter out methods with null models
@@ -103,8 +103,7 @@ async function performDatabaseOperation(params) {
             );
 
             // Await all the create promises
-            const results = await Promise.all(createPromises);
-            return results;
+            return await Promise.all(createPromises);
           } else if (method.method === "mongoDb") {
             return method.model.insertMany(method.data, {
               session: mongoSession,
@@ -129,13 +128,20 @@ async function performDatabaseOperation(params) {
           break;
 
         case "update":
-          // Implement update logic for Sequelize or MongoDB
+          // Implement update logic for Sequelize
           if (method.method === "sequelize") {
-            return method.model.update(method.data, {
+            // Prepare the data object for updating only the 'data' column
+            const updateData = {
+              data: method.data, // Assuming method.data contains the value for the 'data' column
+            };
+
+            // Perform the update operation
+            return method.model.update(updateData, {
               where: method.criteria,
               transaction: sequelizeTransaction,
             });
           } else if (method.method === "mongoDb") {
+            // Implement update logic for MongoDB
             return method.model.updateMany(
               method.criteria,
               { $set: method.data },
@@ -143,6 +149,7 @@ async function performDatabaseOperation(params) {
             );
           }
           break;
+
         case "delete":
           // Execute delete logic for Sequelize or MongoDB
           if (method.method === "sequelize") {
@@ -166,14 +173,12 @@ async function performDatabaseOperation(params) {
 
     // Wait for all operation promises to resolve or reject
     const operationResults = await Promise.allSettled(operationPromises);
-    console.log("operationResults", operationResults)
 
     // Check for any rejected promises (i.e., errors during operations)
     const hasError = operationResults.some(
       (result) => result.status === "rejected"
     );
     if (hasError) {
-      
       // Rollback the transactions if they exist
       if (sequelizeTransaction) {
         await sequelizeTransaction.rollback();
@@ -209,7 +214,6 @@ async function performDatabaseOperation(params) {
     if (primaryDbMethod == "sequelize") {
       //Get the promiseAll results
       return extractDataFromSequelizeInstances(operationResults);
-       
     }
 
     if (primaryDbMethod == "mongoDb") {
@@ -237,41 +241,42 @@ async function performDatabaseOperation(params) {
   }
 }
 
-
 function extractDataFromSequelizeInstances(results) {
   // Flatten the nested arrays and filter out non-fulfilled promises or null values
   const fulfilledValues = results
-    .filter(result => result.status === 'fulfilled' && result.value !== null)
-    .flatMap(result => result.value);
+    .filter((result) => result.status === "fulfilled" && result.value !== null)
+    .flatMap((result) => result.value);
 
   // Extract and parse the data property from each Sequelize model instance
-  return fulfilledValues.map(instance => {
-    // If instance is a Sequelize model instance with dataValues
-    if (instance && instance.dataValues) {
-      // Check if the 'data' property is a string and parse it if necessary
-      const data = instance.dataValues.data;
-      if (typeof data === 'string') {
-        try {
-          return JSON.parse(data);
-        } catch (error) {
-          console.error('Error parsing JSON from data:', error);
-          return null;
+  return fulfilledValues
+    .map((instance) => {
+      // If instance is a Sequelize model instance with dataValues
+      if (instance && instance.dataValues) {
+        // Check if the 'data' property is a string and parse it if necessary
+        const data = instance.dataValues.data;
+        if (typeof data === "string") {
+          try {
+            return JSON.parse(data);
+          } catch (error) {
+            console.error("Error parsing JSON from data:", error);
+            return null;
+          }
+        } else {
+          // If 'data' is already an object, return it as is
+          return data;
         }
-      } else {
-        // If 'data' is already an object, return it as is
-        return data;
       }
-    }
-    // If instance is not a Sequelize model instance, return null
-    return null;
-  }).filter(item => item !== null); // Filter out null values from the result
+      // If instance is not a Sequelize model instance, return null
+      return null;
+    })
+    .filter((item) => item !== null); // Filter out null values from the result
 }
 
 function extractDataFromMongoDbResults(results) {
   // Use flatMap to iterate over the results and extract the value arrays
   // from fulfilled promises, then flatten them into a single array
-  const extractedData = results.flatMap(result => {
-    if (result.status === 'fulfilled' && Array.isArray(result.value)) {
+  const extractedData = results.flatMap((result) => {
+    if (result.status === "fulfilled" && Array.isArray(result.value)) {
       // Return the array of documents directly
       return result.value;
     }
@@ -281,7 +286,6 @@ function extractDataFromMongoDbResults(results) {
 
   return extractedData;
 }
-
 
 module.exports = {
   performDatabaseOperation,
