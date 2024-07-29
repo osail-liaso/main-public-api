@@ -9,8 +9,8 @@ const { validateAgainstSchema } = require("../models/joi/common/validate");
 
 //Bring in the schemas to be used
 const AccountSchemaJoi = require("../models/joi/Account");
-const tableDef = require("../models/sql/Account").tableDef;
-const SchemaSql = require("../models/sql/Account").Account;
+const tableDef = require("../models/mssql/Account").tableDef;
+const SchemaMsSql = require("../models/mssql/Account").Account;
 const SchemaMongo = require("../models/mongo/Account").Account;
 
 //Bring in DAL functions
@@ -27,7 +27,7 @@ const schemas = []
 if(process.env.SQL_SERVER) schemas.push(
   {
     method: "sequelize",
-    model: SchemaSql,
+    model: SchemaMsSql,
     tableDef: tableDef,
     name: "AccountSequelize",
   });

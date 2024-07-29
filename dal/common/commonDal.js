@@ -14,7 +14,7 @@ async function createTableIfNotExists(tableDef, tableName = null) {
   }
 }
 
-function createMethodsArray(data, criteria, schemas) {
+function createMethodsArray(data, criteria, schemas, queryLiteral = null) {
   return schemas
     .map((schema) => {
       let model = schema.model;
@@ -44,12 +44,13 @@ function createMethodsArray(data, criteria, schemas) {
         tableDef: tableDef,
         data: data,
         criteria: criteria,
+        queryLiteral:queryLiteral //An override query if the method requires a specific custom query
       };
     })
     .filter((method) => method.model !== null); // Filter out methods with null models
 }
 
-async function performDatabaseOperation(params, queryLiteral = null) {
+async function performDatabaseOperation(params) {
   let { operation, methods } = params;
   let sequelizeTransaction;
   let mongoSession;
