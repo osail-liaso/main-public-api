@@ -7,6 +7,7 @@ OSAIL is built in 2 parts, a Vue.js web interface and a Node.js server side appl
 ## Configuration
 The application also requires environment variables to operate
 
+Place the following information into your .env file in the root of your project.
 ### App Configuration
 NODE_ENV=DEV #or PROD
 PORT=3000 #localhost testing port, overwritten on deployment
@@ -15,14 +16,11 @@ TIMEOUT=30000 #query timeout for long open connections
 JWT_SECRET=#randomly generated hard to guess string for signing tokens
 
 ### Database Connection
-- DATASTORE=SQLDB #or MONGODB if using MONGODB
-- MONGODB= #Connection string to a MongoDB or an Atlas MongoDB
-
-### Sequelize settings
-- USE_SEQUELIZE=true
-- SQL_SERVER= #your_server.database.windows.net #server URL
-- SQL_DATABASE= #your_database_name #database name
-- SQL_USER= #your_username 
+- PRIMARYDB=sequelize # mongoDb or sequelize - this determines who gets to do the read functions, while writes, updates, deletes are synchronized
+- MONGODB= #Connection string to a MongoDB or an Atlas MongoDB, if applicable
+- SQL_SERVER= #server URL
+- SQL_DATABASE= #database name
+- SQL_USER= #username
 - SQL_PASSWORD= #password
 - SQL_ENCRYPT=true
 - SQL_TRUST_SERVER_CERTIFICATE=true
@@ -33,6 +31,10 @@ JWT_SECRET=#randomly generated hard to guess string for signing tokens
 - AZURE_OPENAI_KEY= #The provided Key from the service
 - AZURE_OPENAI_ENDPOINT= #The provided Key from the service
 - MISTRAL_API_KEY= #The provided Key from the service
+- GROQ_API_KEY= #The provided Key from the service
+
+### Tools
+DEEPGRAM_API_KEY= #An API key for converting audio to text
 
 ### User Settings
 - CHARACTERS_RESERVE_DEFAULT=1000000 #number of characters to grant to a user, if applicablke
