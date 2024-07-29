@@ -1,12 +1,6 @@
 const ApiError = require("../error/ApiError");
 
-// Import the DAL functions
-const {
-  getAllLexicon,
-  updateLexicon,
-  deleteLexicon,
-} = require('../dal/old/lexiconDal');
-
+ 
 exports.getLexicon = async function (req, res, next) {
   
 };
