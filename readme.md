@@ -9,11 +9,11 @@ The application also requires environment variables to operate
 
 Place the following information into your .env file in the root of your project.
 ### App Configuration
-NODE_ENV=DEV #or PROD
-PORT=3000 #localhost testing port, overwritten on deployment
-LOG_LEVEL=info #or debug, info, or #verbose
-TIMEOUT=30000 #query timeout for long open connections
-JWT_SECRET=#randomly generated hard to guess string for signing tokens
+- NODE_ENV=DEV #or PROD
+- PORT=3000 #localhost testing port, overwritten on deployment
+- LOG_LEVEL=info #or debug, info, or #verbose
+- TIMEOUT=30000 #query timeout for long open connections
+- JWT_SECRET=#randomly generated hard to guess string for signing tokens
 
 ### Database Connection
 - PRIMARYDB=sequelize # mongoDb or sequelize - this determines who gets to do the read functions, while writes, updates, deletes are synchronized
@@ -34,7 +34,7 @@ JWT_SECRET=#randomly generated hard to guess string for signing tokens
 - GROQ_API_KEY= #The provided Key from the service
 
 ### Tools
-DEEPGRAM_API_KEY= #An API key for converting audio to text
+- DEEPGRAM_API_KEY= #An API key for converting audio to text
 
 ### User Settings
 - CHARACTERS_RESERVE_DEFAULT=1000000 #number of characters to grant to a user, if applicablke
