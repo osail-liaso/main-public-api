@@ -14,7 +14,6 @@ app.use('/', express.static(path.join(__dirname, '/public')))
 //Core Services
 app.use('/healthcheck', require('./routes/healthcheck')); //Perform a basic healthcheck
 app.use('/stats', require('./routes/stats')); // Load the stats from the server side
-app.use('/bootstrap', require('./routes/bootstrap')); // Create the admin acccount to begin onboarding other accounts
 
 //Use Models
 app.use('/accounts', require('./routes/accounts'));

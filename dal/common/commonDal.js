@@ -1,11 +1,10 @@
 // commonDal.js
 const { v4: uuidv4 } = require("uuid");
-let sequelize;
-let mongoose;
+let sequelize = require("../../config/sql").sequelize;
+let mongoose = require("mongoose"); // Make sure mongoose is required at the top
 
 async function createTableIfNotExists(tableDef, tableName = null) {
   sequelize = sequelize || require("../../config/sql").sequelize;
-
   try {
     await sequelize.query(tableDef, { raw: true });
     console.log(`Table ${tableName} checked and created if not existing.`);
@@ -15,45 +14,64 @@ async function createTableIfNotExists(tableDef, tableName = null) {
   }
 }
 
-async function performDatabaseOperation(params) {
+function createMethodsArray(data, criteria, schemas) {
+  return schemas
+    .map((schema) => {
+      let model = schema.model;
+      let tableDef = schema.tableDef;
+
+      console.log("schema", schema);
+
+      // Check if the model and table definition are valid based on the method type
+      if (schema.method === "sequelize" && (!model || !tableDef)) {
+        console.error("Invalid Sequelize model or table definition.");
+        model = null;
+        tableDef = null;
+      } else if (schema.method === "mongoDb" && !model) {
+        console.error("Invalid MongoDB model.");
+        model = null;
+      } else if (schema.method !== "sequelize" && schema.method !== "mongoDb") {
+        console.error(`Unsupported database method: ${schema.method}`);
+        model = null;
+        tableDef = null;
+      }
+
+      // Return the method configuration object
+      return {
+        name: schema.name || model?.modelName || "UnknownModel",
+        method: schema.method,
+        model: model,
+        tableDef: tableDef,
+        data: data,
+        criteria: criteria,
+      };
+    })
+    .filter((method) => method.model !== null); // Filter out methods with null models
+}
+
+async function performDatabaseOperation(params, queryLiteral = null) {
   let { operation, methods } = params;
   let sequelizeTransaction;
   let mongoSession;
-
-  // Check for the PRIMARYDB environment variable outside the map function
+  let rolledBack = false;
+  // Check for the PRIMARYDB environment variable
   const primaryDbMethod = process.env.PRIMARYDB || null;
-  if (!primaryDbMethod)
+  if (!primaryDbMethod) {
     console.error(
       "Primary DB Method (PRIMARYDB) missing in environment variables. Must be mongoDb or sequelize."
     );
+  }
 
   try {
-    // Dynamically require Sequelize if a Sequelize method is provided
+    // Start Sequelize transaction if needed
     if (methods.some((method) => method.method === "sequelize")) {
-      sequelize = sequelize || require("../../config/sql").sequelize;
-      if (["create", "update", "delete"].includes(operation)) {
-        sequelizeTransaction = await sequelize.transaction();
-      }
-    }
-
-    // Dynamically require Mongoose if a MongoDB method is provided
-    if (methods.some((method) => method.method === "mongoDb")) {
-      mongoose = mongoose || require("mongoose");
-      if (["create", "update", "delete"].includes(operation)) {
-        mongoSession = await mongoose.startSession();
-        mongoSession.startTransaction();
-      }
-    }
-
-    // Start a new transaction for Sequelize if needed
-    if (["create", "update", "delete"].includes(operation)) {
       sequelizeTransaction = await sequelize.transaction();
     }
 
-    // Start a new session for MongoDB if needed
-    if (["create", "update", "delete"].includes(operation)) {
+    // Start MongoDB session if needed
+    if (methods.some((method) => method.method === "mongoDb")) {
       mongoSession = await mongoose.startSession();
-      mongoSession.startTransaction();
+      await mongoSession.startTransaction();
     }
 
     // Execute the specified operations on the provided models
@@ -62,7 +80,10 @@ async function performDatabaseOperation(params) {
         throw new Error(`Model not defined for method: ${method.method}`);
       }
 
-      if ((operation === "readOne" || operation === "readMany") && primaryDbMethod !== method.method) {
+      if (
+        (operation === "readOne" || operation === "readMany") &&
+        primaryDbMethod !== method.method
+      ) {
         return Promise.resolve(null); // Skip non-primary database read operations
       }
 
@@ -140,9 +161,42 @@ async function performDatabaseOperation(params) {
     });
 
     // Wait for all operation promises to resolve
-    const operationResults = await Promise.all(operationPromises);
+    // Wait for all operation promises to resolve
 
-    // Commit the transactions if they exist
+    // Wait for all operation promises to resolve or reject
+    const operationResults = await Promise.allSettled(operationPromises);
+    console.log("operationResults", operationResults)
+
+    // Check for any rejected promises (i.e., errors during operations)
+    const hasError = operationResults.some(
+      (result) => result.status === "rejected"
+    );
+    if (hasError) {
+      
+      // Rollback the transactions if they exist
+      if (sequelizeTransaction) {
+        await sequelizeTransaction.rollback();
+        rolledBack = true;
+      }
+      if (mongoSession) {
+        await mongoSession.abortTransaction();
+        rolledBack = true;
+      }
+
+      // Aggregate all errors and throw them
+      const errors = operationResults
+        .filter((result) => result.status === "rejected")
+        .map((result) => result.reason);
+
+      console.log(errors);
+      throw new Error(
+        `Errors occurred during database operations: ${errors
+          .map((e) => e.message)
+          .join(", ")}`
+      );
+    }
+
+    // Commit the transactions if they exist and all operations were successful
     if (sequelizeTransaction) {
       await sequelizeTransaction.commit();
     }
@@ -150,34 +204,26 @@ async function performDatabaseOperation(params) {
       await mongoSession.commitTransaction();
     }
 
-    // Return the results of the primary database operation
-    // console.log('operationResults', operationResults)
-    // const primaryResult = operationResults.find(
-    //   (result) => result.method === process.env.PRIMARYDB
-    // );
-
-    const nonNullResults = operationResults.filter((result) => result !== null);
-
-    // Flatten the array of results if necessary
+    // Parse the returned of the sequelize
     if (primaryDbMethod == "sequelize") {
-      const flattenedResults = extractDataFromSequelizeInstances(nonNullResults)
-      return flattenedResults;
+      //Get the promiseAll results
+      return extractDataFromSequelizeInstances(operationResults);
+       
     }
 
     if (primaryDbMethod == "mongoDb") {
-      const flattenedResults = nonNullResults.flatMap((result) =>
-        Array.isArray(result) ? result : [result]
-      );
-      return flattenedResults;
+      // const flattenedResults = operationResults.flatMap((result) =>
+      //   Array.isArray(result) ? result : [result]
+      // );
+      return extractDataFromMongoDbResults(operationResults);
     }
-
-
   } catch (error) {
+    console.log("Error", error);
     // Rollback the transactions if they exist
-    if (sequelizeTransaction) {
+    if (sequelizeTransaction && !rolledBack) {
       await sequelizeTransaction.rollback();
     }
-    if (mongoSession) {
+    if (mongoSession && !rolledBack) {
       await mongoSession.abortTransaction();
     }
     console.error(`Error performing ${operation}:`, error);
@@ -190,19 +236,54 @@ async function performDatabaseOperation(params) {
   }
 }
 
+
 function extractDataFromSequelizeInstances(results) {
-  return results.map(instance => {
-    // Check if instance is a Sequelize model instance with dataValues
-    if (instance && instance.dataValues && 'data' in instance.dataValues) {
-      // Parse the JSON string into an object if it's not already parsed
+  // Flatten the nested arrays and filter out non-fulfilled promises or null values
+  const fulfilledValues = results
+    .filter(result => result.status === 'fulfilled' && result.value !== null)
+    .flatMap(result => result.value);
+
+  // Extract and parse the data property from each Sequelize model instance
+  return fulfilledValues.map(instance => {
+    // If instance is a Sequelize model instance with dataValues
+    if (instance && instance.dataValues) {
+      // Check if the 'data' property is a string and parse it if necessary
       const data = instance.dataValues.data;
-      return typeof data === 'string' ? JSON.parse(data) : data;
+      if (typeof data === 'string') {
+        try {
+          return JSON.parse(data);
+        } catch (error) {
+          console.error('Error parsing JSON from data:', error);
+          return null;
+        }
+      } else {
+        // If 'data' is already an object, return it as is
+        return data;
+      }
     }
-    return null; // Return null if the expected properties are not found
+    // If instance is not a Sequelize model instance, return null
+    return null;
   }).filter(item => item !== null); // Filter out null values from the result
 }
+
+function extractDataFromMongoDbResults(results) {
+  // Use flatMap to iterate over the results and extract the value arrays
+  // from fulfilled promises, then flatten them into a single array
+  const extractedData = results.flatMap(result => {
+    if (result.status === 'fulfilled' && Array.isArray(result.value)) {
+      // Return the array of documents directly
+      return result.value;
+    }
+    // If the result is not fulfilled or doesn't contain an array, return an empty array
+    return [];
+  });
+
+  return extractedData;
+}
+
 
 module.exports = {
   performDatabaseOperation,
   createTableIfNotExists,
+  createMethodsArray,
 };

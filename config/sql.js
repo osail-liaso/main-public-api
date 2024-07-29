@@ -16,15 +16,16 @@ const config = {
     min: 1,
     acquire: 30000,
     idle: 10000,
-    validate: async (connection) => {
-      try {
-        await connection.authenticate(); // Check if the connection is valid
-        return true; // The connection is valid
-      } catch (err) {
-        console.error("Invalid DB connection:", err);
-        return false; // The connection is invalid
-      }
-    },
+  //   validate: async (connection) => {
+  //   try {
+  //     // Use a simple query to check if the connection is valid
+  //     await connection.query('SELECT 1');
+  //     return true; // The connection is valid
+  //   } catch (err) {
+  //     console.error("Invalid DB connection:", err);
+  //     return false; // The connection is invalid
+  //   }
+  // }
   },
   retry: {
     max: 3, // How many times a failing query is automatically retried
@@ -92,6 +93,7 @@ async function initDb() {
 }
 
 module.exports = {
+  config,
   initDb,
   sequelize,
   cleanup,

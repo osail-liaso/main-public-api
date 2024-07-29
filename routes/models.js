@@ -6,6 +6,7 @@ const modelsController = require('../controllers/models');
 
 //Recall
 router.get('/', modelsController.getModels);
+router.get('/bootstrap',  modelsController.bootstrapModels);
 
 // //Create
 router.post('/', [isAuthenticated, isAdmin, renewToken], modelsController.createModels);

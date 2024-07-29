@@ -1,6 +1,6 @@
-const Seq = require("../models/sql/Persona");
-const Mon = require("../models/mongo/documents/Persona");
-const { sequelize } = require("../config/sql");
+const Seq = require("../../models/sql/tables/Persona");
+const Mon = require("../../models/mongo/documents/Persona");
+const { sequelize } = require("../../config/sql");
 const useSequelize = process.env.USE_SEQUELIZE === "true";
 
 const getModel = () => {

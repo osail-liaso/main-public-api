@@ -2,6 +2,15 @@
 /*
 //Table Definitions
 
+
+*/
+ 
+const { DataTypes, Model } = require('sequelize');
+const { sequelize } = require('../../config/sql');
+
+
+let tableDef = `
+
 -- Create the Lexicons table
 CREATE TABLE dbo.Lexicon (
     id INT IDENTITY(1,1) PRIMARY KEY,
@@ -15,26 +24,9 @@ CREATE TABLE dbo.Lexicon (
 
 CREATE UNIQUE NONCLUSTERED INDEX IX_Lexicons_UUID
 ON dbo.Lexicon (uuid);
-
--- Add check constraints to ensure required fields are present in JSON
-ALTER TABLE dbo.Lexicon
-ADD CONSTRAINT CHK_Lexicon_RequiredFields CHECK (
-     JSON_VALUE(data, '$.uuid') IS NOT NULL
-    AND JSON_VALUE(data, '$.code') IS NOT NULL
-    AND JSON_QUERY(data, '$.word') IS NOT NULL
-    );
  
--- Add check constraint for valid lexicon status
-ALTER TABLE dbo.Lexicon
-ADD CONSTRAINT CHK_Lexicon_ValidStatus CHECK (
-    JSON_VALUE(data, '$.status') IN ('active', 'inactive', 'deleted', NULL)
-);
+`;
 
-
-*/
- 
-const { DataTypes, Model } = require('sequelize');
-const { sequelize } = require('../../config/sql');
 
 class Lexicon extends Model {}
 
@@ -47,35 +39,35 @@ Lexicon.init({
   data: {
     type: DataTypes.JSON,
     allowNull: false,
-    validate: {
-      isValidData(value) {
+    // validate: {
+    //   isValidData(value) {
 
-        // User information
-        if (!value.uuid || !value.username || !value.password || !value.salt) {
-          throw new Error('uuid, username, password, and salt are required');
-        }
+    //     // User information
+    //     if (!value.uuid || !value.username || !value.password || !value.salt) {
+    //       throw new Error('uuid, username, password, and salt are required');
+    //     }
 
-        if (!value.roles || !Array.isArray(value.roles) || value.roles.length === 0) {
-          throw new Error('roles must be a non-empty array');
-        }
+    //     if (!value.roles || !Array.isArray(value.roles) || value.roles.length === 0) {
+    //       throw new Error('roles must be a non-empty array');
+    //     }
 
-        if (!['user', 'contributor', 'owner', 'admin'].some(role => value.roles.includes(role))) {
-          throw new Error('Invalid role');
-        }
+    //     if (!['user', 'contributor', 'owner', 'admin'].some(role => value.roles.includes(role))) {
+    //       throw new Error('Invalid role');
+    //     }
 
-        // Subscription status
-        if (value.subscriptionStatus && !['active', 'inactive'].includes(value.subscriptionStatus)) {
-          throw new Error('Invalid subscription status');
-        }
+    //     // Subscription status
+    //     if (value.subscriptionStatus && !['active', 'inactive'].includes(value.subscriptionStatus)) {
+    //       throw new Error('Invalid subscription status');
+    //     }
 
-        // Status
-        if (value.status && !['active', 'inactive', 'deleted'].includes(value.status)) {
-          throw new Error('Invalid status');
-        }
+    //     // Status
+    //     if (value.status && !['active', 'inactive', 'deleted'].includes(value.status)) {
+    //       throw new Error('Invalid status');
+    //     }
 
-        // Add more validations as needed
-      }
-    },
+    //     // Add more validations as needed
+    //   }
+    // },
     get() {
       const rawValue = this.getDataValue('data');
 
@@ -126,4 +118,4 @@ Lexicon.beforeCreate((lexicon, options) => {
   lexicon.momentUpdated = now;
 });
 
-module.exports = Lexicon;
+module.exports = {Lexicon, tableDef};

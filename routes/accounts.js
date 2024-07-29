@@ -6,8 +6,9 @@ const accountsController = require('../controllers/accounts');
 
 //Admins only, get the full list of accounts
 router.get('/', [isAuthenticated, isAdmin],  accountsController.getAccounts);
-// router.get('/allInfo',  [isAuthenticated, isAdmin, renewToken], accountsController.allAccountInfo);
-// router.post('/deleteAccounts',  [isAuthenticated, isAdmin, renewToken], accountsController.deleteAccounts);
+
+//Bootstrap the first account. Only works if there is no osailAdmin, otherwise returns an error
+router.get('/bootstrap',   accountsController.bootstrapAdminAccount);
 
 //Login
 router.post('/',  accountsController.createNewAccount);

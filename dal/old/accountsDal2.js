@@ -1,7 +1,7 @@
-const Seq = require("../models/sql/Account");
-const Mon = require("../models/mongo/documents/Account");
+const Seq = require("../../models/sql/Account");
+const Mon = require("../../models/mongo/Account");
 
-const { sequelize } = require("../config/sql");
+const { sequelize } = require("../../config/sql");
 
 const PRIMARYDB = process.env.PRIMARYDB; // 'MONGODB' or 'SEQUELIZE'
 

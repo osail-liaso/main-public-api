@@ -7,7 +7,7 @@ const { OpenAIClient, AzureKeyCredential } = require("@azure/openai");
 const {Groq} = require("groq-sdk");
 
 // User management for API keys and user tokens
-const Account = require("../models/mongo/documents/Account");
+const Account = require("../models/mongo/Account");
 const { authenticateAndDecode } = require("../middleware/verify");
 
 async function incrementUsedCharacters(account, characters) {

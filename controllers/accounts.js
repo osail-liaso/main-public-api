@@ -3,66 +3,117 @@ const ApiError = require("../error/ApiError");
 const bcrypt = require("bcrypt");
 const { createJWT } = require("../middleware/verify");
 
-// Import the DAL functions
+//Import the schemas and the validator function
+//The validator is used to enforce the JSON structure, not the schemas.
+const { validateAgainstSchema } = require("../models/joi/common/validate");
+
+//Bring in the schemas to be used
+const AccountSchemaJoi = require("../models/joi/Account");
+const tableDef = require("../models/sql/Account").tableDef;
+const SchemaSql = require("../models/sql/Account").Account;
+const SchemaMongo = require("../models/mongo/Account").Account;
+
+//Bring in DAL functions
 const {
-  performDatabaseOperation,
   createTableIfNotExists,
+  createMethodsArray,
+  performDatabaseOperation,
 } = require("../dal/common/commonDal");
 
+//DECIDE WHICH DATABASE METHODS AND SCHEMAS YOU'RE USING
+//Remove one of the other, depending on your DB preferences
+//Or keep them both for simultaneous sync of 2 separate DBs
+const schemas = [
+  {
+    method: "sequelize",
+    model: SchemaSql,
+    tableDef: tableDef,
+    name: "AccountSequelize",
+  },
+  {
+    method: "mongoDb",
+    model: SchemaMongo,
+    name: "AccountMongoDb",
+  },
+];
+
 // Call this function when your app starts to ensure the table is created
-//IF USING SEQUELIZE
-try {
-  const accountTableDef = require("../models/sql/Account").tableDef;
-  (async () => {
-    await createTableIfNotExists(accountTableDef, "Accounts");
-  })();
-} catch (error) {
-  console.error("Sequelize model tableDef not found:", error);
-}
-
-//Create the methods array. Use whichever method you prefer in your app
-function createMethodsArray(data, criteria) {
-  let sequelizeModel, sequelizeTableDef, mongoDbModel;
-
-  //IF USING SEQUELIZE
-  try {
-    const sequelizeAccount = require("../models/sql/Account");
-    sequelizeModel = sequelizeAccount.Account;
-    sequelizeTableDef = sequelizeAccount.tableDef;
-  } catch (error) {
-    console.error("Sequelize model could not be loaded:", error);
-    sequelizeModel = null;
-    sequelizeTableDef = null;
+//IF USING SEQUELIZE CREATE THE DATABASE TABLE PRIOR TO ANY DATABASE OPERATIONS
+(async () => {
+  if (tableDef && process.env.SQL_SERVER) {
+    try {
+      await createTableIfNotExists(tableDef, "Accounts");
+    } catch (error) {
+      console.error("Failed to create table from model:", error);
+    }
   }
+})();
 
-  //IF USING MONGODB
+//###############################
+//Controller Endpoints Below
+//###############################
+
+// Accepts a new account and saves it to the database
+exports.bootstrapAdminAccount = async function (req, res, next) {
   try {
-    mongoDbModel = require("../models/mongo/documents/Account");
-  } catch (error) {
-    console.error("MongoDB model could not be loaded:", error);
-    mongoDbModel = null;
-  }
+    //Create Admin Password
+    let plainPassword = "strongAdminPassword" + uuidv4();
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(plainPassword, salt);
 
-  return [
-    //IF USING SEQUELIZE
-    {
-      name: "Account",
-      method: "sequelize",
-      model: sequelizeModel,
-      tableDef: sequelizeTableDef,
-      data: data,
-      criteria: criteria,
-    },
-    //IF USING MONGODB
-    {
-      name: "Account",
-      method: "mongoDb",
-      model: mongoDbModel,
-      data: data,
-      criteria: criteria,
-    },
-  ];
-}
+    //Make a new admin account
+    const newAccount = {
+      uuid: uuidv4(),
+      username: "osailAdmin",
+      email: "test@email.com",
+      useCase: "administrator",
+      notes: "default administrator account",
+      preferredLng: "en",
+      roles: ["admin", "user"],
+      status: "active",
+      subscriptionStatus: "active",
+      password: hashedPassword,
+      salt,
+    };
+
+    //Create and save the content
+    //Step 1 Validate and complete the json using Joi schema
+    let validatedJson = validateAgainstSchema(AccountSchemaJoi, newAccount);
+    if (!validatedJson.error) {
+      //Step 2 Then create the methods array to save to the applicable DBs
+      //Step 3 Then perform the database operations
+      performDatabaseOperation({
+        operation: "create",
+        methods: createMethodsArray([validatedJson.value], null, schemas),
+      })
+        .then((createdAccounts) => {
+          console.log("Created Account(s)", createdAccounts);
+          const newToken = createJWT(newAccount, req.fullUrl);
+          res.header("auth-token", newToken.token);
+          res.header(
+            "auth-token-decoded",
+            JSON.stringify(newToken.tokenDecoded)
+          );
+
+          res.status(201).send({
+            message:
+              "Bootstrap initiated to create an admin account. Record this password, it is the last time it will be shown",
+            payload: { username: newAccount.username, password: plainPassword },
+          });
+        })
+        .catch((err) => {
+          res.status(400).json({ message: "Query error", payload: err });
+        });
+    } else {
+      res
+        .status(400)
+        .json({ message: "Validation error", payload: validatedJson.error });
+    }
+  } catch (error) {
+    console.error("Bootstrap error:", error);
+    res.status(500).json({ message: "failure", payload: error.message });
+  }
+};
 
 //Controller Methods / Endpoints
 exports.createNewAccount = async function (req, res, next) {
@@ -102,11 +153,20 @@ exports.createNewAccount = async function (req, res, next) {
   };
 
   try {
-    const methods = createMethodsArray(newAccount, null);
+    //Create and save the content
+    //Step 1 Validate and complete the json using Joi schema
+    let validatedJson = validateAgainstSchema(AccountSchemaJoi, newAccount);
+
+    //Step 2 Then create the methods array to save to the applicable DBs
+    const methods = createMethodsArray(validatedJson, null, schemas);
+
+    //Step 3 Then perform the database operations
     const createdAccount = await performDatabaseOperation({
       operation: "create",
       methods,
     });
+
+    //Step 4 Ensure success
     if (createdAccount) {
       const newToken = createJWT(
         {
@@ -126,10 +186,10 @@ exports.createNewAccount = async function (req, res, next) {
           tokenDecoded: newToken.tokenDecoded,
         },
       });
-    }
-    else
-    {
-      res.status(500).json({ message: "Failed to create account.", payload: null });
+    } else {
+      res
+        .status(500)
+        .json({ message: "Failed to create account.", payload: null });
     }
   } catch (error) {
     res.status(500).json({ message: "failure", payload: null });
@@ -144,7 +204,7 @@ exports.login = async function (req, res, next) {
       throw ApiError.badRequest("Username and password are required.");
     }
 
-    const methods = createMethodsArray(null, {"username":username});
+    const methods = createMethodsArray(null, { username: username });
     // console.log('Methods', methods)
     const accounts = await performDatabaseOperation({
       operation: "readOne",
@@ -180,149 +240,16 @@ exports.login = async function (req, res, next) {
   }
 };
 
-exports.getAccounts = async function (req, res, next) {
-  try {
-    const accountInfo = await getAllAccounts();
+exports.getAccounts = async function (req, res, next) {};
 
-    res
-      .status(200)
-      .json({ message: "Here is the account info", payload: accountInfo });
-  } catch (error) {
-    next(error);
-  }
-};
+exports.accountOwn = async function (req, res, next) {};
 
-exports.accountOwn = async function (req, res, next) {
-  try {
-    const username = req.tokenDecoded.username;
-    const accountInfo = await getAccountByUsername(username);
+exports.accountOwnUpdate = async function (req, res, next) {};
 
-    if (accountInfo && accountInfo.status === "active") {
-      const { password, salt, ...safeAccountInfo } = accountInfo;
-      res.status(200).json({
-        message: "Here is the account info",
-        payload: safeAccountInfo,
-      });
-    } else {
-      res
-        .status(404)
-        .json({ message: "No active account found", payload: null });
-    }
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.accountOwnUpdate = async function (req, res, next) {
-  try {
-    const username = req.tokenDecoded.username;
-    let accountData = req.body.account || {};
-
-    if (accountData.username !== username) {
-      return res
-        .status(403)
-        .json({ message: "Usernames do not match.", payload: null });
-    }
-
-    const account = await getAccountByUsername(username);
-    if (!account || account.status !== "active") {
-      return res
-        .status(404)
-        .json({ message: "No active account found", payload: null });
-    }
-
-    const updatedAccount = await updateAccount(account.id, accountData);
-
-    if (updatedAccount) {
-      res
-        .status(200)
-        .json({ message: "Account updated", payload: updatedAccount });
-    } else {
-      res
-        .status(500)
-        .json({ message: "Error updating account", payload: null });
-    }
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.accountOwnDelete = async function (req, res, next) {
-  try {
-    const username = req.tokenDecoded.username;
-    const account = await getAccountByUsername(username);
-
-    if (account && account.status === "active") {
-      const deleteResult = await deleteAccount(account.id);
-      if (deleteResult) {
-        res.status(200).json({ message: "Account deleted" });
-      } else {
-        res
-          .status(500)
-          .json({ message: "Error deleting account", payload: null });
-      }
-    } else {
-      res
-        .status(404)
-        .json({ message: "No active account found", payload: null });
-    }
-  } catch (error) {
-    next(error);
-  }
-};
+exports.accountOwnDelete = async function (req, res, next) {};
 
 // ... (keep other functions like accountOwnDataDownload, accountOwnDataUpload, accountOwnDataDelete as they are)
 
-exports.allAccountInfo = async function (req, res, next) {
-  try {
-    const accounts = await getAllAccounts();
-    const safeAccounts = accounts.map(
-      ({ password, salt, ...safeAccount }) => safeAccount
-    );
+exports.allAccountInfo = async function (req, res, next) {};
 
-    if (safeAccounts.length > 0) {
-      res
-        .status(200)
-        .json({ message: "Here are all accounts info", payload: safeAccounts });
-    } else {
-      res.status(404).json({ message: "No active accounts found" });
-    }
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.deleteAccounts = async function (req, res, next) {
-  try {
-    let usernames = req.body.usernames || [];
-    if (!Array.isArray(usernames)) usernames = [usernames];
-    let errors = 0;
-    let deleted = 0;
-
-    for (const username of usernames) {
-      const account = await getAccountByUsername(username);
-      if (account && account.status === "active") {
-        const deleteResult = await deleteAccount(account.id);
-        if (deleteResult) {
-          deleted++;
-        } else {
-          errors++;
-        }
-      } else {
-        errors++;
-      }
-    }
-
-    if (deleted > 0) {
-      res
-        .status(200)
-        .json({ message: "Accounts deleted", payload: { deleted, errors } });
-    } else {
-      res
-        .status(404)
-        .json({ message: "No active accounts found", payload: null });
-    }
-  } catch (error) {
-    next(error);
-  }
-};
+exports.deleteAccounts = async function (req, res, next) {};
