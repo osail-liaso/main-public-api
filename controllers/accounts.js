@@ -23,19 +23,22 @@ const {
 //DECIDE WHICH DATABASE METHODS AND SCHEMAS YOU'RE USING
 //Remove one of the other, depending on your DB preferences
 //Or keep them both for simultaneous sync of 2 separate DBs
-const schemas = [
+const schemas = []
+if(process.env.SQL_SERVER) schemas.push(
   {
     method: "sequelize",
     model: SchemaSql,
     tableDef: tableDef,
     name: "AccountSequelize",
-  },
-  {
+  });
+
+  //If there is a MongoDB connection string 
+  if(process.env.MONGODB) schemas.push(
+    {
     method: "mongoDb",
     model: SchemaMongo,
     name: "AccountMongoDb",
-  },
-];
+  });
 
 // Call this function when your app starts to ensure the table is created
 //IF USING SEQUELIZE CREATE THE DATABASE TABLE PRIOR TO ANY DATABASE OPERATIONS

@@ -2,7 +2,7 @@ const uuidv4 = require("uuid").v4;
 const ApiError = require("../error/ApiError");
 const logger = require("../middleware/logger");
 
-const {defaultModels} = require("../assets/defaultModels");
+const { defaultModels } = require("../assets/defaultModels");
 
 //Import the schemas and the validator function
 //The validator is used to enforce the JSON structure, not the schemas.
@@ -21,19 +21,22 @@ const {
   performDatabaseOperation,
 } = require("../dal/common/commonDal");
 
-const schemas = [
-  {
+const schemas = [];
+if (process.env.SQL_SERVER)
+  schemas.push({
     method: "sequelize",
     model: SchemaSql,
     tableDef: tableDef,
     name: "ModelSequelize",
-  },
-  {
+  });
+
+//If there is a MongoDB connection string
+if (process.env.MONGODB)
+  schemas.push({
     method: "mongoDb",
     model: SchemaMongo,
     name: "ModelMongoDb",
-  },
-];
+  });
 
 // Call this function when your app starts to ensure the table is created
 //IF USING SEQUELIZE CREATE THE DATABASE TABLE PRIOR TO ANY DATABASE OPERATIONS
@@ -73,14 +76,15 @@ exports.bootstrapModels = async function (req, res, next) {
       if (thisModel) {
         thisModel.uuid = uuidv4(); //Assign a uuid
         validatedJson = validateAgainstSchema(ModelSchemaJoi, thisModel);
-        if (!validatedJson.error) 
-          {console.log(validatedJson.value); 
-            bootstrapModels.push(validatedJson.value)}
-        else {console.log(validatedJson.error); validationErrors.push(validatedJson.error);}
+        if (!validatedJson.error) {
+          console.log(validatedJson.value);
+          bootstrapModels.push(validatedJson.value);
+        } else {
+          console.log(validatedJson.error);
+          validationErrors.push(validatedJson.error);
+        }
       }
     });
-
-
 
     //Create the models into the database
     performDatabaseOperation({
@@ -110,12 +114,11 @@ exports.bootstrapModels = async function (req, res, next) {
 };
 
 exports.getModels = async function (req, res, next) {
-
-    //Create the models into the database
-    let results = await performDatabaseOperation({
-      operation: "readMany",
-      methods: createMethodsArray(null, {status:'active'}, schemas),
-    })
+  //Create the models into the database
+  let results = await performDatabaseOperation({
+    operation: "readMany",
+    methods: createMethodsArray(null, { status: "active" }, schemas),
+  });
 
   res
     .status(200)
