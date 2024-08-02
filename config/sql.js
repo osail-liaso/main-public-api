@@ -16,16 +16,16 @@ const config = {
     min: 1,
     acquire: 30000,
     idle: 10000,
-  //   validate: async (connection) => {
-  //   try {
-  //     // Use a simple query to check if the connection is valid
-  //     await connection.query('SELECT 1');
-  //     return true; // The connection is valid
-  //   } catch (err) {
-  //     console.error("Invalid DB connection:", err);
-  //     return false; // The connection is invalid
-  //   }
-  // }
+    //   validate: async (connection) => {
+    //   try {
+    //     // Use a simple query to check if the connection is valid
+    //     await connection.query('SELECT 1');
+    //     return true; // The connection is valid
+    //   } catch (err) {
+    //     console.error("Invalid DB connection:", err);
+    //     return false; // The connection is invalid
+    //   }
+    // }
   },
   retry: {
     max: 3, // How many times a failing query is automatically retried
@@ -54,19 +54,11 @@ if (process.env.SQL_USE_WINDOWS_AUTH === "true") {
 
 const sequelize = new Sequelize(config);
 
-// Function to send a keep-alive query to the database
-function keepAlive() {
-  sequelize.query("SELECT 1").catch((err) => {
-    console.error("Keep-alive query failed:", err);
-  });
-}
-
-// Start the keep-alive interval
-const keepAliveInterval = setInterval(keepAlive, KEEP_ALIVE_INTERVAL);
-
 // Function to clear the keep-alive interval and close connections
 function cleanup() {
-  clearInterval(keepAliveInterval);
+  if (keepAliveInterval) {
+    clearInterval(keepAliveInterval);
+  }
   sequelize
     .close()
     .then(() => {
@@ -77,9 +69,21 @@ function cleanup() {
     });
 }
 
-// Handle application shutdown gracefully
-process.on("SIGINT", cleanup);
-process.on("SIGTERM", cleanup);
+// Function to send a keep-alive query to the database
+function keepAlive() {
+  sequelize.query("SELECT 1").catch((err) => {
+    console.error("Keep-alive query failed:", err);
+  });
+}
+let keepAliveInterval = null;
+if (process.env.SQL_SERVER) {
+  // Start the keep-alive interval
+  keepAliveInterval = setInterval(keepAlive, KEEP_ALIVE_INTERVAL);
+
+  // Handle application shutdown gracefully
+  process.on("SIGINT", cleanup);
+  process.on("SIGTERM", cleanup);
+}
 
 async function initDb() {
   console.log("Initializing SQL DB Connection");
