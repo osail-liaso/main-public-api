@@ -211,7 +211,7 @@ exports.login = async function (req, res, next) {
 
     let account = null;
     let accounts = await performDatabaseOperation({
-      operation: "readOne",
+      operation: "readMany",
       methods: createMethodsArray(null, { username: username }, schemas),
     });
 
