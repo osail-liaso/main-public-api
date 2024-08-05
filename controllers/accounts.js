@@ -1,6 +1,6 @@
 const uuidv4 = require("uuid").v4;
 const ApiError = require("../error/ApiError");
-const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 const { createJWT } = require("../middleware/verify");
 
 //Import the schemas and the validator function
@@ -52,6 +52,17 @@ if (process.env.MONGODB)
   }
 })();
 
+
+const hashPassword = (password, salt) => {
+  return crypto.scryptSync(password, salt, 64).toString('hex');
+};
+
+const verifyPassword = (password, salt, hashedPassword) => {
+  const hashed = hashPassword(password, salt);
+  return hashed === hashedPassword;
+};
+
+
 //###############################
 //Controller Endpoints Below
 //###############################
@@ -63,12 +74,11 @@ exports.bootstrapAdminAccount = async function (req, res, next) {
     const plainPassword = "strongAdminPassword" + uuidv4();
     const passwordResetToken =
       uuidv4() + " " + uuidv4() + " " + uuidv4() + " " + uuidv4();
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(plainPassword, salt);
-    const hashedPasswordResetToken = await bcrypt.hash(
-      passwordResetToken,
-      salt
-    );
+
+
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hashedPassword = hashPassword(plainPassword, salt);
+    const hashedPasswordResetToken = hashPassword(passwordResetToken, salt);
 
     //Make a new admin account
     const newAccount = {
@@ -145,9 +155,9 @@ exports.createNewAccount = async function (req, res, next) {
   //Create the cryptographic fields
   const passwordResetToken =
     uuidv4() + " " + uuidv4() + " " + uuidv4() + " " + uuidv4();
-  const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash(password, salt);
-  const hashedPasswordResetToken = await bcrypt.hash(passwordResetToken, salt);
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hashedPassword = hashPassword(password, salt);
+  const hashedPasswordResetToken = hashPassword(passwordResetToken, salt);
 
   const newAccount = {
     uuid: uuidv4(),
@@ -221,11 +231,12 @@ exports.login = async function (req, res, next) {
       throw ApiError.notFound("Account not found.");
     }
 
-    const passwordMatch = await bcrypt.compare(password, account.password);
+    const passwordMatch = verifyPassword(password, account.salt, account.password);
     if (!passwordMatch) {
       throw ApiError.unauthorized("Incorrect password.");
     }
 
+    
     const tokenInfo = {
       uuid: account.uuid,
       username: account.username,
@@ -263,7 +274,7 @@ exports.resetPassword = async function (req, res, next) {
     }
 
     let account = accounts[0];
-    const passwordResetTokensMatch = await bcrypt.compare(passwordResetToken, account.passwordResetToken);
+    const passwordResetTokensMatch = verifyPassword(passwordResetToken, account.salt, account.passwordResetToken);
     if (!passwordResetTokensMatch) {
       throw ApiError.notFound("Password reset token does not match. Please contact your administrator for a manual reset");
     }
@@ -271,9 +282,9 @@ exports.resetPassword = async function (req, res, next) {
     // Proceed with the reset
     // Make new token, salt
     const newPasswordResetToken = uuidv4() + " " + uuidv4() + " " + uuidv4() + " " + uuidv4();
-    const newSalt = await bcrypt.genSalt(10);
-    const newHashedPassword = await bcrypt.hash(newPassword, newSalt);
-    const newHashedPasswordResetToken = await bcrypt.hash(newPasswordResetToken, newSalt);
+    const newSalt = crypto.randomBytes(16).toString('hex');
+    const newHashedPassword = hashPassword(plainPassword, salt);
+    const newHashedPasswordResetToken = hashPassword(passwordResetToken, salt);
 
     //Update the account
     account.salt = newSalt;
