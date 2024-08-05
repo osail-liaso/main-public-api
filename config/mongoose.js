@@ -6,8 +6,7 @@ var url = process.env.MONGODB; //Connection string is set through system variabl
 
 //Mongoose Options
 var options = {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
+   
 };
 
 function initDb(callback) {
