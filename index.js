@@ -20,6 +20,10 @@ app.use('/accounts', require('./routes/accounts'));
 app.use('/models', require('./routes/models'));
 app.use('/lexicon', require('./routes/lexicon'));
 app.use('/personas', require('./routes/personas'));
+
+//Use tools
+app.use('/vectorize', require('./routes/vectorize'));
+  
   
 
 // const {transcribeFile} = require("./tools/deepgram.js")
