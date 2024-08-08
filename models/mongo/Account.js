@@ -7,6 +7,7 @@ const AccountSchema = new mongoose.Schema({}, {
 });
 
 AccountSchema.index({ uuid: 1 }, { unique: true });
+AccountSchema.index({ username: 1 }, { unique: true });
 
 const Account = mongoose.model("Account", AccountSchema);
 module.exports = {Account};
