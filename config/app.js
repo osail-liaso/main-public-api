@@ -73,7 +73,7 @@ app.use(expressLogger);
 
 //Create HTTP Server
 const server = http.createServer(app);
-server.listen(port, () =>
+server.listen( port, '0.0.0.0', () =>
   console.log(`OSAIL- Node.js service listening at http://localhost:${port}`)
 );
 
